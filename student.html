@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生徒用（子機）</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            text-align: center;
+            transition: 0.2s;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 18px;
+            margin: 10px;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="login-screen">
+        <h1>🧑‍🎓 生徒の入室画面</h1>
+        <input type="text" id="room-input" placeholder="先生のIDを入力">
+        <br>
+        <input type="text" id="name-input" placeholder="あなたのニックネーム">
+        <br><br>
+        <button id="connect-btn">入室する</button>
+    </div>
+
+    <div id="game-screen" style="display:none; padding-top: 50px;">
+        <h1 id="status-text">先生がスタートするのを待っています...</h1>
+    </div>
+
+    <script>
+        const peer = new Peer();
+
+        document.getElementById('connect-btn').onclick = () => {
+            const roomId = document.getElementById('room-input').value;
+            const name = document.getElementById('name-input').value;
+            if (!roomId || !name) return alert("IDと名前を入力してください");
+
+            document.getElementById('connect-btn').innerText = "接続中...";
+
+            // 先生のPCへ直接接続しにいく
+            const conn = peer.connect(roomId);
+
+            conn.on('open', () => {
+                // 繋がったら、自分の名前を先生に送信
+                conn.send(name);
+
+                // 待機画面に切り替え
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('game-screen').style.display = 'block';
+            });
+
+            // 先生から合図を受け取った時の処理
+            conn.on('data', (data) => {
+                if (data === "START") {
+                    // 合図を受け取った瞬間、画面を赤色にして文字を変える！
+                    document.body.style.backgroundColor = "#ff4c4c";
+                    document.body.style.color = "white";
+                    document.getElementById('status-text').innerText = "⚡ ゲームスタート！！！ ⚡";
+                }
+            });
+        };
+    </script>
+</body>
+
+</html>
