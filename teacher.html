@@ -803,7 +803,12 @@
         // ==========================================
         let savedQuizzes = [];
         let currentEditingQuizId = null;
-        let gasUrl = localStorage.getItem('baboot_gas_url') || '';
+
+        // ▼▼▼ ここに先生のGAS URLを貼り付けてください ▼▼▼
+        const HARDCODED_GAS_URL = "";
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+        let gasUrl = localStorage.getItem('baboot_gas_url') || HARDCODED_GAS_URL;
 
         // エディタ用データ
         let editingQuestions = [];
@@ -1285,7 +1290,9 @@
 
             if (peer != null) { peer.destroy(); }
 
-            document.getElementById('display-pin').innerText = "生成中...";
+            document.getElementById('display-pin').innerText = "サーバー起動中...(初回のみ約50秒かかります)";
+            document.getElementById('display-pin').style.fontSize = "2em";
+            document.getElementById('display-pin').style.color = "orange";
 
             // 学校のFW対策として、Render上の専用シグナリングサーバーを指定
             // これによりURLが独自のものとなり、peerjsドメインフィルタを回避できます
