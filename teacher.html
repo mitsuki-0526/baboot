@@ -1287,14 +1287,14 @@
 
             document.getElementById('display-pin').innerText = "生成中...";
 
-            // 学校のFW対策として、Metered.caの無料TURNサーバーとGoogle STUNを追加
-            // さらに、WebSocketが弾かれた場合に備えてポートを明示的に指定
+            // 学校のFW対策として、Render上の専用シグナリングサーバーを指定
+            // これによりURLが独自のものとなり、peerjsドメインフィルタを回避できます
             const peerConfig = {
                 debug: 2,
-                host: '0.peerjs.com',
+                host: 'srv-d6gl1f9drdic73c8ulm0.onrender.com',
                 port: 443,
                 secure: true,
-                path: '/',
+                path: '/baboot',
                 config: {
                     'iceServers': [
                         { url: 'stun:stun.l.google.com:19302' },
