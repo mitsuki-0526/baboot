@@ -20,7 +20,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baboot! - 先生用</title>
-        <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;900&display=swap" rel="stylesheet">
@@ -807,7 +807,7 @@
         let currentEditingQuizId = null;
 
         // ▼▼▼ ここに先生のGAS URLを貼り付けてください ▼▼▼
-        const HARDCODED_GAS_URL = "";
+        const HARDCODED_GAS_URL = "https://script.google.com/macros/s/AKfycbxC8UH-5w1hlt8Z3tZKlhruDU1iS0EAwGYx_5I4L9YWz6x3KVmh9ha_tePY3x7kAhHtbA/exec";
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         let gasUrl = localStorage.getItem('baboot_gas_url') || HARDCODED_GAS_URL;
