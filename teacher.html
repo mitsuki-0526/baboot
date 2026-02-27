@@ -1287,14 +1287,30 @@
 
             document.getElementById('display-pin').innerText = "生成中...";
 
-            // 学校のFW対策として、GoogleなどのSTUNサーバーを増設
+            // 学校のFW対策として、Metered.caの無料TURNサーバーとGoogle STUNを追加
+            // さらに、WebSocketが弾かれた場合に備えてポートを明示的に指定
             const peerConfig = {
                 debug: 2,
+                port: 443,
+                secure: true,
                 config: {
                     'iceServers': [
                         { url: 'stun:stun.l.google.com:19302' },
-                        { url: 'stun:stun1.l.google.com:19302' },
-                        { url: 'stun:stun2.l.google.com:19302' }
+                        {
+                            urls: "turn:openrelay.metered.ca:80",
+                            username: "openrelayproject",
+                            credential: "openrelayproject"
+                        },
+                        {
+                            urls: "turn:openrelay.metered.ca:443",
+                            username: "openrelayproject",
+                            credential: "openrelayproject"
+                        },
+                        {
+                            urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                            username: "openrelayproject",
+                            credential: "openrelayproject"
+                        }
                     ]
                 }
             };
