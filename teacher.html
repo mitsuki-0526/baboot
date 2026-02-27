@@ -1291,8 +1291,10 @@
             // さらに、WebSocketが弾かれた場合に備えてポートを明示的に指定
             const peerConfig = {
                 debug: 2,
+                host: '0.peerjs.com',
                 port: 443,
                 secure: true,
+                path: '/',
                 config: {
                     'iceServers': [
                         { url: 'stun:stun.l.google.com:19302' },
