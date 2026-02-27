@@ -1287,27 +1287,55 @@
 
             document.getElementById('display-pin').innerText = "生成中...";
 
+            // 学校のFW対策として、GoogleなどのSTUNサーバーを増設
+            const peerConfig = {
+                debug: 2,
+                config: {
+                    'iceServers': [
+                        { url: 'stun:stun.l.google.com:19302' },
+                        { url: 'stun:stun1.l.google.com:19302' },
+                        { url: 'stun:stun2.l.google.com:19302' }
+                    ]
+                }
+            };
+
             // PeerJSのパブリックサーバーに接続 (エラー時はCatchする)
-            peer = new Peer(peerId, { debug: 2 });
+            peer = new Peer(peerId, peerConfig);
 
             peer.on('open', (id) => {
+                document.getElementById('display-pin').style.color = "var(--k-purple)";
                 document.getElementById('display-pin').innerText = shortPin;
                 console.log('PeerJS connected with ID:', id);
             });
 
             peer.on('error', (err) => {
-                document.getElementById('display-pin').innerText = "エラー発生";
+                document.getElementById('display-pin').innerText = "接続中..(再試行)";
                 document.getElementById('display-pin').style.fontSize = "2em";
-                document.getElementById('display-pin').style.color = "red";
-                console.error('PeerJS Error:', err);
+                document.getElementById('display-pin').style.color = "orange";
+                console.warn('PeerJS Error/Retry:', err);
 
                 if (err.type === 'unavailable-id') {
                     alert("通信エラー: PIN番号が衝突しました。もう一度お試しください。");
-                } else if (err.type === 'network' || err.type === 'server-error') {
-                    alert("通信エラー: PeerJSサーバーに接続できません。");
-                } else {
-                    alert("PeerJSエラー: " + err.type + "\n" + err.message);
+                    return;
                 }
+
+                // ネットワークブロック系のエラーなら、少し待って再接続を試みる
+                setTimeout(() => {
+                    if (!peer.destroyed) {
+                        console.log("Reconnecting peer...");
+                        peer.reconnect();
+                    }
+                }, 3000);
+            });
+
+            peer.on('disconnected', () => {
+                document.getElementById('display-pin').innerText = "切断..再試行中";
+                document.getElementById('display-pin').style.color = "orange";
+                setTimeout(() => {
+                    if (!peer.destroyed) {
+                        peer.reconnect();
+                    }
+                }, 3000);
             });
 
             peer.on('connection', (conn) => {
