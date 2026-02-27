@@ -2,6 +2,21 @@
 <html lang="ja">
 
 <head>
+    <script>
+        const pass = prompt("Baboot! 管理画面\n\nアクセスするにはパスワードを入力してください。\n(旧Babootの保存パスワードと同じです)");
+        if (pass !== "baboot") {
+            // パスワードが異なる場合は、ダミーのエラーページに置換して中身を見せない
+            document.documentElement.innerHTML = `
+                <head><title>Access Denied</title></head>
+                <body style="font-family:sans-serif; text-align:center; padding:50px;">
+                    <h2 style="color:red;">アクセス拒否</h2>
+                    <p>このページを表示する権限がありません。</p>
+                    <a href="index.html">トップページ（生徒用）に戻る</a>
+                </body>
+            `;
+            throw new Error("Unauthorized"); // 以降のスクリプト実行を停止
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baboot! - 先生用</title>

@@ -3,73 +3,702 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Baboot! - ログイン画面</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Baboot! - 生徒用</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;900&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            text-align: center;
+        /* --- 基本設定 --- */
+        :root {
+            --k-purple: #46178f;
+            --k-red: #e21b3c;
+            --k-blue: #1368ce;
+            --k-yellow: #d89e00;
+            --k-green: #26890c;
         }
 
-        .container {
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f2f2f2;
+            text-align: center;
+            margin: 0;
+            padding: 10px;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 共通UI */
+        .big-title {
+            color: #333;
+            font-size: 2.5em;
+            font-weight: 900;
+            margin: 20px 0;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+        }
+
+        .card {
             background: white;
-            padding: 40px;
             border-radius: 12px;
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 400px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
-        h1 {
-            color: #46178f;
-            font-size: 3em;
-            margin-bottom: 30px;
-            margin-top: 0;
+        input[type="text"] {
+            font-size: 1.5em;
+            padding: 15px;
+            width: 80%;
+            border-radius: 8px;
+            border: 2px solid #ccc;
+            text-align: center;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: bold;
+            margin-bottom: 15px;
         }
 
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-            font-weight: bold;
+        .btn-main {
+            background-color: #333;
             color: white;
-            text-decoration: none;
+            font-size: 1.5em;
+            padding: 15px 50px;
+            border: none;
             border-radius: 8px;
-            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-weight: 900;
+            font-family: 'Montserrat', sans-serif;
+            box-shadow: 0 6px 0 #000;
             transition: 0.1s;
         }
 
-        .btn:active {
-            transform: translateY(4px);
+        .btn-main:active {
+            transform: translateY(6px);
             box-shadow: none;
         }
 
-        .btn-teacher {
-            background-color: #e21b3c;
-            box-shadow: 0 4px 0 #990f26;
+        .btn-main:disabled {
+            background-color: #999;
+            box-shadow: 0 6px 0 #666;
+            cursor: not-allowed;
         }
 
-        .btn-student {
-            background-color: #1368ce;
-            box-shadow: 0 4px 0 #0b458e;
+        /* ゲーム画面 (解答用) */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .score-box {
+            background: #333;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* タイマー */
+        .timer-container {
+            width: 100%;
+            height: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #timer-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--k-purple);
+        }
+
+        /* 4択ボタン */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            height: 50vh;
+            /* 画面の半分くらいをボタンにする */
+        }
+
+        .option-btn {
+            border: none;
+            border-radius: 8px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s, box-shadow 0.1s;
+            cursor: pointer;
+        }
+
+        .option-btn:active {
+            transform: translateY(8px);
+            box-shadow: none !important;
+        }
+
+        /* 押せない状態 */
+        .locked .option-btn {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .bg-red {
+            background-color: var(--k-red);
+            box-shadow: 0 8px 0 #990f26;
+        }
+
+        .bg-blue {
+            background-color: var(--k-blue);
+            box-shadow: 0 8px 0 #0c4285;
+        }
+
+        .bg-yellow {
+            background-color: var(--k-yellow);
+            box-shadow: 0 8px 0 #916a00;
+        }
+
+        .bg-green {
+            background-color: var(--k-green);
+            box-shadow: 0 8px 0 #154d06;
+        }
+
+        /* 結果フィードバック */
+        #feedback-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: 900;
+            transition: background-color 0.3s;
+        }
+
+        .fb-correct {
+            background-color: #26890c;
+        }
+
+        .fb-wrong {
+            background-color: #e21b3c;
+        }
+
+        .fb-wait {
+            background-color: #46178f;
+        }
+
+        #feedback-icon {
+            font-size: 6em;
+            margin-bottom: 20px;
+            text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        #feedback-text {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        #feedback-score {
+            font-size: 2em;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 30px;
+            border-radius: 50px;
+            text-align: center;
+        }
+
+        /* スマホ向け調整 */
+        @media (max-width: 480px) {
+            input[type="text"] {
+                width: 90%;
+                font-size: 1.2em;
+                padding: 10px;
+            }
+
+            .btn-main {
+                padding: 12px 30px;
+                font-size: 1.2em;
+            }
+
+            .option-btn {
+                font-size: 2.5em;
+            }
+
+            .options-grid {
+                gap: 10px;
+                bottom: 10px;
+            }
+
+            .big-title {
+                font-size: 2em;
+            }
+        }
+
+        /* 結果画面（ポディウム） */
+        .podium-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 200px;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .podium-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            position: relative;
+        }
+
+        .podium-bar {
+            width: 100%;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            padding-top: 10px;
+            animation: growUp 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            transform-origin: bottom;
+            transform: scaleY(0);
+        }
+
+        @keyframes growUp {
+            to {
+                transform: scaleY(1);
+            }
+        }
+
+        .podium-name {
+            font-size: 1em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90px;
+        }
+
+        .podium-score {
+            font-size: 1.1em;
+            font-weight: 900;
+        }
+
+        .place-1 .podium-bar {
+            background: #d89e00;
+        }
+
+        .place-2 .podium-bar {
+            background: #C0C0C0;
+        }
+
+        .place-3 .podium-bar {
+            background: #CD7F32;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <h1>Baboot!</h1>
-        <p style="font-weight: bold; color: #666; margin-bottom: 30px;">どちらの画面を開きますか？</p>
-        <a href="./teacher.html" class="btn btn-teacher">👨‍🏫 先生用（ホスト）画面へ</a>
-        <a href="./student.html" class="btn btn-student">🎓 生徒用（参加者）画面へ</a>
+
+    <!-- フィードバック画面 (正解/不正解/結果待ち) -->
+    <div id="feedback-overlay" class="hidden">
+        <div id="feedback-icon">⏳</div>
+        <div id="feedback-text">Wait...</div>
+        <div id="feedback-score" style="display: none;"></div>
     </div>
+
+    <!-- 【1】参加画面 -->
+    <div id="view-join">
+        <h1 class="big-title" style="color:#46178f;">Baboot!</h1>
+        <div class="card">
+            <select id="lang-select" onchange="changeLanguage()"
+                style="font-size: 1.2em; padding: 10px; width: 80%; border-radius: 8px; margin-bottom: 15px;">
+                <option value="ja">日本語</option>
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+            </select><br>
+            <input type="text" id="room-id" placeholder="Room PIN (数字6桁)" style="text-transform: uppercase;">
+            <input type="text" id="student-name" placeholder="Nickname">
+            <br>
+            <button class="btn-main" id="btn-join" onclick="joinRoom()">参加する</button>
+            <p id="join-msg" style="color: red; font-weight: bold; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <!-- 【2】待機画面 -->
+    <div id="view-waiting" class="hidden">
+        <h1 class="big-title" style="margin-top: 50px;">You're in!</h1>
+        <div class="card">
+            <h2 id="display-name" style="color: #46178f;">Name</h2>
+            <p id="display-wait-msg" style="font-size: 1.2em; font-weight: bold;">画面(先生のPC)を見て<br>スタートを待ってね！</p>
+        </div>
+    </div>
+
+    <!-- 【3】ゲーム(解答)画面 -->
+    <div id="view-game" class="hidden">
+        <div class="game-header">
+            <div class="score-box">Q: <span id="q-counter">1</span></div>
+            <div class="score-box">Score: <span id="current-score">0</span></div>
+        </div>
+
+        <div class="timer-container">
+            <div id="timer-bar"></div>
+        </div>
+
+        <div id="s-pre-read-overlay" class="hidden"
+            style="background:#fff3cd; color:#856404; padding:10px; margin-bottom:15px; border-radius:5px; font-weight:bold; font-size:1.2em; border:1px solid #ffeeba; text-align:center;">
+            👀 Reading Time... / 問題を読む時間です
+        </div>
+
+        <div id="s-q-text"
+            style="font-size:1.5em; font-weight:bold; margin-bottom:15px; min-height:60px; word-break:break-all;"></div>
+
+        <!-- 4色ボタン (問題文は先生にしか出ない) -->
+        <div id="options-area" class="options-grid locked">
+            <button class="option-btn bg-red" onclick="sendAnswer(0)"
+                style="flex-direction:column; font-size:1.2em;"><span style="font-size:2em;">▲</span><span
+                    class="opt-text" style="font-weight:bold; margin-top:5px;"></span></button>
+            <button class="option-btn bg-blue" onclick="sendAnswer(1)"
+                style="flex-direction:column; font-size:1.2em;"><span style="font-size:2em;">◆</span><span
+                    class="opt-text" style="font-weight:bold; margin-top:5px;"></span></button>
+            <button class="option-btn bg-yellow" onclick="sendAnswer(2)"
+                style="flex-direction:column; font-size:1.2em;"><span style="font-size:2em;">●</span><span
+                    class="opt-text" style="font-weight:bold; margin-top:5px;"></span></button>
+            <button class="option-btn bg-green" onclick="sendAnswer(3)"
+                style="flex-direction:column; font-size:1.2em;"><span style="font-size:2em;">■</span><span
+                    class="opt-text" style="font-weight:bold; margin-top:5px;"></span></button>
+        </div>
+    </div>
+
+    <!-- 【4】ランキング画面 (NEW) -->
+    <div id="view-ranking" class="hidden">
+        <h1 id="ui-ranking-title" class="big-title" style="margin-top: 30px;">Ranking</h1>
+        <div class="card" style="text-align: left; padding: 15px;">
+            <table style="width:100%; font-size:1.2em; border-collapse: collapse;" id="student-ranking-table">
+            </table>
+        </div>
+    </div>
+
+    <!-- 【5】最終結果画面 (NEW) -->
+    <div id="view-final" class="hidden">
+        <h1 class="big-title" style="margin-top: 20px;">🏆 Final Ranking 🏆</h1>
+        <div class="podium-container" id="student-podium">
+            <!-- JSで描画 -->
+        </div>
+        <div class="card" style="margin-top: 30px; text-align: center;">
+            <p id="final-my-rank" style="font-size: 1.5em; font-weight: bold; margin: 0;">Rank...</p>
+            <p id="final-my-score" style="font-size: 1.2em; color: #666;"></p>
+        </div>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        let conn = null;
+        let myName = "";
+        let myScore = 0;
+        let currentLang = "ja";
+
+        const UI_TEXTS = {
+            ja: { placeholderName: "Nickname", joinBtn: "参加する", waitMsg: "画面(先生のPC)を見て\\nスタートを待ってね！", rankTitle: "ランキング" },
+            en: { placeholderName: "Nickname", joinBtn: "Join", waitMsg: "Look at the screen\\nand wait for start!", rankTitle: "Leaderboard" },
+            zh: { placeholderName: "昵称", joinBtn: "加入", waitMsg: "请看屏幕\\n等待游戏开始！", rankTitle: "排行榜" }
+        };
+
+        function changeLanguage() {
+            currentLang = document.getElementById('lang-select').value;
+            const t = UI_TEXTS[currentLang];
+            document.getElementById('student-name').placeholder = t.placeholderName;
+            document.getElementById('btn-join').innerText = t.joinBtn;
+            document.getElementById('display-wait-msg').innerHTML = t.waitMsg.replace("\\n", "<br>");
+            document.getElementById('ui-ranking-title').innerText = t.rankTitle;
+        }
+
+        let questionStartTime = 0;
+        let currentStreak = 0;
+        let timerTimeout;
+
+        // ----- 通信処理 -----
+
+        function joinRoom() {
+            let roomId = document.getElementById('room-id').value.trim();
+            myName = document.getElementById('student-name').value.trim();
+
+            if (!roomId || !myName) {
+                document.getElementById('join-msg').innerText = "IDと名前を入れてね！";
+                return;
+            }
+
+            // 6桁の数字のみ入力された場合は内部でプレフィックスを付ける
+            if (/^\d{6}$/.test(roomId)) {
+                roomId = 'baboot-' + roomId;
+            }
+
+            const btn = document.getElementById('btn-join');
+            btn.disabled = true;
+            btn.innerText = "接続中...";
+
+            conn = peer.connect(roomId);
+
+            conn.on('open', () => {
+                // 先生に自分の名前を送る
+                conn.send(JSON.stringify({ type: "JOIN", name: myName }));
+
+                // 画面を待機に切り替え
+                document.getElementById('view-join').classList.add('hidden');
+                document.getElementById('view-waiting').classList.remove('hidden');
+                document.getElementById('display-name').innerText = myName;
+            });
+
+            // 先生からのメッセージを受信
+            conn.on('data', (dataStr) => {
+                try {
+                    const data = JSON.parse(dataStr);
+
+                    if (data.type === "PRE_QUESTION") {
+                        // 7秒の事前表示開始
+                        prepareQuestion(data);
+                    }
+                    else if (data.type === "QUESTION_START") {
+                        // 本格的に解答スタート！
+                        startQuestionCountdown(currentQTime);
+                    }
+                    else if (data.type === "RESULT") {
+                        // 正誤判定の結果を受信
+                        showFeedback(data.isCorrect, data.points, data.bonus);
+                    }
+                    else if (data.type === "RANKING") {
+                        // ランキングを受信
+                        document.getElementById('feedback-overlay').classList.add('hidden');
+                        document.getElementById('view-game').classList.add('hidden');
+                        document.getElementById('view-waiting').classList.add('hidden');
+                        document.getElementById('view-ranking').classList.remove('hidden');
+
+                        let tableHtml = '<tr><th style="border-bottom:2px solid #ccc; padding:5px;">Rank</th><th style="border-bottom:2px solid #ccc; padding:5px;">Name</th><th style="border-bottom:2px solid #ccc; padding:5px;">Score</th></tr>';
+                        data.top5.forEach((p, index) => {
+                            let isMe = (p.name === myName);
+                            let style = isMe ? 'background-color:#ffffcc; font-weight:bold;' : '';
+                            style += ` --i: ${index};`; // アニメーションの遅延用変数
+                            let icon = '';
+                            if (index === 0) icon = '🥇 ';
+                            else if (index === 1) icon = '🥈 ';
+                            else if (index === 2) icon = '🥉 ';
+                            tableHtml += `<tr class="ranking-row" style="${style}"><td style="padding:8px 5px; text-align:center;">${icon}${index + 1}</td><td style="padding:8px 5px;">${p.name}</td><td style="padding:8px 5px; text-align:right;">${p.score}</td></tr>`;
+                        });
+                        document.getElementById('student-ranking-table').innerHTML = tableHtml;
+                    }
+                    else if (data.type === "FINAL_RANKING") {
+                        document.getElementById('feedback-overlay').classList.add('hidden');
+                        document.getElementById('view-game').classList.add('hidden');
+                        document.getElementById('view-waiting').classList.add('hidden');
+                        document.getElementById('view-ranking').classList.add('hidden');
+                        document.getElementById('view-final').classList.remove('hidden');
+
+                        const results = data.results;
+                        const top3 = results.slice(0, 3);
+
+                        let podiumHtml = '';
+                        if (top3[1]) {
+                            podiumHtml += `<div class="podium-item place-2"><div class="podium-name">${top3[1].name}</div><div class="podium-bar" style="height:120px;"><div class="podium-score">${top3[1].score}</div></div></div>`;
+                        }
+                        if (top3[0]) {
+                            podiumHtml += `<div class="podium-item place-1"><div class="podium-name">${top3[0].name}</div><div class="podium-bar" style="height:160px;"><div class="podium-score">${top3[0].score}</div></div></div>`;
+                        }
+                        if (top3[2]) {
+                            podiumHtml += `<div class="podium-item place-3"><div class="podium-name">${top3[2].name}</div><div class="podium-bar" style="height:80px;"><div class="podium-score">${top3[2].score}</div></div></div>`;
+                        }
+                        document.getElementById('student-podium').innerHTML = podiumHtml;
+
+                        const myResult = results.find(p => p.name === myName);
+                        if (myResult) {
+                            if (currentLang === 'ja') document.getElementById('final-my-rank').innerText = `あなたの順位: ${myResult.rank}位`;
+                            else if (currentLang === 'zh') document.getElementById('final-my-rank').innerText = `你的排名: 第${myResult.rank}名`;
+                            else document.getElementById('final-my-rank').innerText = `Your Rank: ${myResult.rank}`;
+                            document.getElementById('final-my-score').innerText = `${myResult.score} pts`;
+                        }
+                    }
+                    else if (data.type === "END" || data.type === "NEXT") {
+                        if (data.type === "END") {
+                            showOverlay("fb-wait", "🏆", "ゲーム終了！\n画面を見てね", "");
+                        } else { // NEXT 
+                            // 次の問題のために待機画面へ、オーバーレイを消す
+                            document.getElementById('feedback-overlay').classList.add('hidden');
+                            document.getElementById('view-game').classList.add('hidden');
+                            document.getElementById('view-ranking').classList.add('hidden');
+                            document.getElementById('view-waiting').classList.remove('hidden');
+                        }
+                    }
+                } catch (e) {
+                    console.error("Data error", e);
+                }
+            });
+
+            conn.on('error', (err) => {
+                document.getElementById('join-msg').innerText = "エラー: " + err.message;
+                btn.disabled = false;
+                btn.innerText = "参加する";
+            });
+        }
+
+        // ----- 画面・ゲーム処理 -----
+
+        let currentQTime = 0;
+
+        function prepareQuestion(data) {
+            currentQTime = data.time;
+            document.getElementById('view-waiting').classList.add('hidden');
+            document.getElementById('view-ranking').classList.add('hidden');
+            document.getElementById('view-game').classList.remove('hidden');
+
+            document.getElementById('q-counter').innerText = data.qNum;
+
+            // テキストのローカライズ反映
+            let dispQText = data.qText;
+            if (currentLang === 'en' && data.qText_en) dispQText = data.qText_en;
+            if (currentLang === 'zh' && data.qText_zh) dispQText = data.qText_zh;
+            document.getElementById('s-q-text').innerText = dispQText || "";
+
+            const optSpans = document.querySelectorAll('.opt-text');
+            for (let i = 0; i < 4; i++) {
+                let dispOpt = data.qOptions[i] || "";
+                if (currentLang === 'en' && data.qOptions_en && data.qOptions_en[i]) dispOpt = data.qOptions_en[i];
+                if (currentLang === 'zh' && data.qOptions_zh && data.qOptions_zh[i]) dispOpt = data.qOptions_zh[i];
+                optSpans[i].innerText = dispOpt;
+            }
+
+            // ボタンを押せないようにする (グレーアウト) & 選択肢自体を隠す
+            document.getElementById('options-area').classList.add('locked');
+            document.getElementById('options-area').classList.add('hidden'); // ← 読解中は選択肢を隠す
+
+            // プログレスバーをリセットして、読む時間(7秒)のバーを動かす
+            const bar = document.getElementById('timer-bar');
+            bar.style.transition = "none";
+            bar.style.width = '100%';
+            bar.style.background = '#ffc107'; // 黄色
+            void bar.offsetWidth;
+
+            setTimeout(() => {
+                bar.style.transition = `width ${data.preTime || 7}s linear`;
+                bar.style.width = '0%';
+            }, 50);
+
+            // 問題文を大きく中央に表示
+            const qText = document.getElementById('s-q-text');
+            qText.style.fontSize = "3em";
+            qText.style.textAlign = "center";
+            qText.style.marginTop = "15vh";
+            qText.style.lineHeight = "1.3";
+
+            // 全画面オーバーレイを隠し、事前表示用バナーを出す
+            document.getElementById('feedback-overlay').classList.add('hidden');
+            document.getElementById('s-pre-read-overlay').classList.remove('hidden');
+        }
+
+        function startQuestionCountdown(timeSec) {
+            // オーバーレイやバナーを隠す
+            document.getElementById('feedback-overlay').classList.add('hidden');
+            document.getElementById('s-pre-read-overlay').classList.add('hidden');
+
+            // 問題文のスタイルを元に戻す
+            const qText = document.getElementById('s-q-text');
+            qText.style.fontSize = "1.5em";
+            qText.style.textAlign = "left";
+            qText.style.marginTop = "0";
+            qText.style.lineHeight = "normal";
+
+            // 選択肢を表示して、ボタンを押せるようにする
+            document.getElementById('options-area').classList.remove('hidden'); // ← 選択肢を表示！
+            document.getElementById('options-area').classList.remove('locked');
+
+            // タイマーアニメーション開始
+            questionStartTime = Date.now();
+            const bar = document.getElementById('timer-bar');
+            bar.style.transition = "none";
+            bar.style.width = '100%';
+            bar.style.background = 'var(--k-purple)'; // 元の紫色に戻す
+            void bar.offsetWidth; // 強制リフロー
+
+            setTimeout(() => {
+                bar.style.transition = `width ${timeSec}s linear`;
+                bar.style.width = '0%';
+            }, 50);
+
+            // 時間切れ処理
+            clearTimeout(timerTimeout);
+            timerTimeout = setTimeout(() => {
+                document.getElementById('options-area').classList.add('locked');
+                showOverlay("fb-wait", "⏰", "Time's Up!", "他の人を待っています...");
+                currentStreak = 0;
+                conn.send(JSON.stringify({ type: "ANSWER", choice: -1, timeTaken: timeSec, myName: myName }));
+            }, timeSec * 1000);
+        }
+
+        function sendAnswer(choiceIndex) {
+            // 1度押したらロックする
+            document.getElementById('options-area').classList.add('locked');
+            clearTimeout(timerTimeout);
+
+            const timeTaken = (Date.now() - questionStartTime) / 1000;
+
+            // 先生に解答を送信 (正誤は先生側で判定してもらう)
+            conn.send(JSON.stringify({
+                type: "ANSWER",
+                choice: choiceIndex,
+                timeTaken: timeTaken,
+                myName: myName
+            }));
+
+            // 判定結果が返ってくるまで「Wait...」を出す
+            showOverlay("fb-wait", "⏳", "Waiting...", "他の人を待っています");
+        }
+
+        function showFeedback(isCorrect, points, bonus) {
+            if (isCorrect) {
+                myScore += (points + bonus);
+                document.getElementById('current-score').innerText = myScore;
+
+                let scoreText = `+${points + bonus}`;
+                if (bonus > 0) scoreText += `<br><span style="font-size:0.5em">Streak +${bonus}🔥</span>`;
+
+                showOverlay("fb-correct", "✔", "Correct!", scoreText);
+            } else {
+                showOverlay("fb-wrong", "×", "Wrong...", "");
+            }
+        }
+
+        function showOverlay(colorClass, icon, text, scoreHtml) {
+            const overlay = document.getElementById('feedback-overlay');
+            overlay.className = ''; // 共通クラスをリセット
+            overlay.classList.add(colorClass); // 色付け
+
+            document.getElementById('feedback-icon').innerText = icon;
+            document.getElementById('feedback-text').innerText = text;
+
+            const scoreEl = document.getElementById('feedback-score');
+            if (scoreHtml) {
+                scoreEl.innerHTML = scoreHtml;
+                scoreEl.style.display = 'block';
+            } else {
+                scoreEl.style.display = 'none';
+            }
+
+            overlay.classList.remove('hidden');
+        }
+    </script>
 </body>
 
 </html>
