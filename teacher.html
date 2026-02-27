@@ -690,7 +690,10 @@
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                 <button class="btn-main" style="background: #ccc; box-shadow: 0 4px 0 #999; color: #333;"
                     onclick="closeImportModal()">キャンセル</button>
-                <button class="btn-main btn-next" style="margin-top: 0;" onclick="processImportData()">インポート実行</button>
+                <button class="btn-main btn-success" style="margin-top: 0; background: #26890c;"
+                    onclick="processRoundListImportData()">RoundListの一括インポート</button>
+                <button class="btn-main btn-next" style="margin-top: 0;"
+                    onclick="processImportData()">問題データのインポート</button>
             </div>
         </div>
     </div>
@@ -1135,6 +1138,85 @@
                 selectQuestion(0);
                 closeImportModal();
                 showStatus("インポート成功。保存ボタンを押してください。", "success");
+            }
+        }
+
+        async function processRoundListImportData() {
+            const rawData = document.getElementById('import-textarea').value;
+            const urlInput = document.getElementById('import-url-input').value.trim();
+
+            let rows = [];
+
+            if (urlInput) {
+                try {
+                    showStatus("データを取得中...", "loading");
+                    const res = await fetch(urlInput);
+                    if (!res.ok) throw new Error("ネットワークエラー");
+                    const csvText = await res.text();
+                    rows = parseCSVToArray(csvText);
+                    showStatus("", "success");
+                } catch (e) {
+                    alert("URLからの取得に失敗しました。URLが間違っているか、ウェブに公開(CSV形式)されていない可能性があります。");
+                    showStatus("", "success");
+                    return;
+                }
+            } else if (rawData.trim()) {
+                const textRows = rawData.split('\n');
+                rows = textRows.map(r => r.split('\t'));
+            } else {
+                alert("URLかデータのどちらかを入力してください。");
+                return;
+            }
+
+            let importCount = 0;
+            const newOrUpdatedQuizzes = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const cols = rows[i];
+                if (cols.length < 4) continue;
+                if (i === 0 && cols[0] === '教科') continue;
+
+                const subject = String(cols[0]).trim();
+                const grade = String(cols[1]).trim();
+                const round = String(cols[2]).trim();
+                const title = String(cols[3]).trim();
+
+                if (!subject || !grade || !round) continue;
+
+                const id = `${subject}_${grade}_${round}`;
+                const existingIndex = savedQuizzes.findIndex(q => q.id === id);
+
+                let qObj;
+                if (existingIndex >= 0) {
+                    savedQuizzes[existingIndex].title = title;
+                    qObj = savedQuizzes[existingIndex];
+                } else {
+                    qObj = { id: id, subject: subject, title: title, questions: [] };
+                    savedQuizzes.push(qObj);
+                }
+                newOrUpdatedQuizzes.push(qObj);
+                importCount++;
+            }
+
+            if (importCount === 0) {
+                alert("有効なRoundList行が見つかりませんでした。データを確認してください。");
+                return;
+            }
+
+            if (confirm(`${importCount}件のタイトル枠を読み込みました。\nGAS(オンライン)に一括作成・保存しますか？\n（※数十秒かかる場合があります。問題の登録は後で各回ごとに行ってください）`)) {
+                closeImportModal();
+                localStorage.setItem('baboot_quizzes_local', JSON.stringify(savedQuizzes));
+
+                if (gasUrl) {
+                    for (let i = 0; i < newOrUpdatedQuizzes.length; i++) {
+                        const q = newOrUpdatedQuizzes[i];
+                        showStatus(`GASへ保存中... (${i + 1}/${newOrUpdatedQuizzes.length})`, "loading");
+                        await syncToGAS('save', q.id, q.subject, q);
+                    }
+                }
+
+                showStatus("RoundListの一括作成が完了しました！", "success");
+                loadData(); // 現在表示中のセレクターに合わせて再描画
             }
         }
 
