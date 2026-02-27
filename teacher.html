@@ -3,1229 +3,352 @@
 
 <head>
     <script>
-        const pass = prompt("Baboot! 管理画面\n\nアクセスするにはパスワードを入力してください。\n(旧Babootの保存パスワードと同じです)");
-        if (pass !== "baboot") {
-            // パスワードが異なる場合は、ダミーのエラーページに置換して中身を見せない
-            document.documentElement.innerHTML = `
-                <head><title>Access Denied</title></head>
-                <body style="font-family:sans-serif; text-align:center; padding:50px;">
-                    <h2 style="color:red;">アクセス拒否</h2>
-                    <p>このページを表示する権限がありません。</p>
-                    <a href="index.html">トップページ（生徒用）に戻る</a>
-                </body>
-            `;
-            throw new Error("Unauthorized"); // 以降のスクリプト実行を停止
-        }
-    </script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Baboot! - 先生用</title>
-    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;900&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --k-purple: #46178f;
-            --k-red: #e21b3c;
-            --k-blue: #1368ce;
-            --k-yellow: #d89e00;
-            --k-green: #26890c;
-        }
-
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .top-bar {
-            background: #fff;
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #ddd;
-            font-weight: bold;
-        }
-
-        /* ボタンスタイル */
-        .btn-main {
-            background: var(--k-purple);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            font-size: 1.2em;
-            font-weight: 900;
-            cursor: pointer;
-            box-shadow: 0 4px 0 #280a59;
-            transition: 0.1s;
-        }
-
-        .btn-main:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        .btn-main:disabled {
-            background: #ccc;
-            box-shadow: 0 4px 0 #999;
-            cursor: not-allowed;
-        }
-
-        .btn-next {
-            background: var(--k-blue);
-            box-shadow: 0 4px 0 #0b458e;
-            float: right;
-            margin-top: 20px;
-        }
-
-        .btn-success {
-            background: var(--k-green);
-            box-shadow: 0 4px 0 #154d06;
-        }
-
-        .btn-danger {
-            background: var(--k-red);
-            box-shadow: 0 4px 0 #990f26;
-        }
-
-        .btn-small {
-            padding: 5px 10px;
-            font-size: 1em;
-        }
-
-        /* 共通コンテナ */
-        .container {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            text-align: center;
-        }
-
-        /* ダッシュボード */
-        /* ヘッダー */
-        .header {
-            background: #46178f;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .config-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        select,
-        input[type="text"],
-        input[type="number"] {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            font-weight: bold;
-        }
-
-        /* ボタン類 */
-        .btn-load {
-            background: #333;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .btn-launch {
-            background: #d89e00;
-            color: #333;
-            border: none;
-            padding: 8px 15px;
-            margin-left: 10px;
-            cursor: pointer;
-            border-radius: 4px;
-            font-weight: bold;
-            box-shadow: 0 2px 0 #916a00;
-        }
-
-        .btn-launch:active {
-            transform: translateY(2px);
-            box-shadow: none;
-        }
-
-        .btn-danger-round {
-            background: #ff4d4d;
-            color: white;
-            border: 1px solid #cc0000;
-            padding: 5px 10px;
-            margin-left: 15px;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 0.8em;
-        }
-
-        .btn-danger-round:hover {
-            background: #cc0000;
-        }
-
-        /* レイアウト */
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-            background: #fff;
-            border-radius: 0 0 10px 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        /* モーダルスタイル */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            width: 80%;
-            max-width: 800px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .modal-content textarea {
-            width: 100%;
-            height: 200px;
-            margin-top: 10px;
-            padding: 10px;
-            font-family: monospace;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        .sidebar {
-            width: 280px;
-            background: #f0f0f5;
-            border-right: 1px solid #ddd;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* リストアイテム */
-        .q-list-item {
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-        }
-
-        .q-list-item:hover {
-            background: #e6e6ea;
-        }
-
-        .q-list-item.active {
-            background: #fff;
-            border-left: 5px solid #46178f;
-            font-weight: bold;
-        }
-
-        .q-num {
-            font-size: 0.8em;
-            color: #666;
-            margin-right: 10px;
-        }
-
-        .q-title {
-            font-size: 0.9em;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            flex: 1;
-        }
-
-        /* サイドバーフッター */
-        .sidebar-footer {
-            padding: 10px;
-            border-top: 1px solid #ccc;
-            text-align: center;
-            background: #e0e0e5;
-        }
-
-        .btn-add-q {
-            width: 100%;
-            padding: 10px;
-            background: #26890c;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        /* エディタエリア */
-        .editor-main {
-            flex: 1;
-            padding: 30px;
-            overflow-y: auto;
-            background: #fff;
-            text-align: left;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .editor-main label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #46178f;
-        }
-
-        .full-width {
-            width: 100%;
-            padding: 12px;
-            font-size: 1.1em;
-            border: 1px solid #ccc;
-            box-sizing: border-box;
-            border-radius: 4px;
-        }
-
-        .btn-delete-q {
-            background: #e21b3c;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        /* 選択肢グリッド */
-        .editor-options-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .gas-settings {
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px auto;
-            text-align: center;
-            border: 2px dashed #ccc;
-        }
-
-        .gas-settings input {
-            width: 50%;
-            padding: 10px;
-            font-size: 1em;
-            margin-right: 10px;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 2em;
-            font-weight: bold;
-            z-index: 9999;
-        }
-
-        /* 待機画面 */
-        .pin-display {
-            font-size: 5em;
-            font-weight: 900;
-            letter-spacing: 5px;
-            margin: 20px 0;
-            background: white;
-            display: inline-block;
-            padding: 10px 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .player-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 30px;
-        }
-
-        .player-tag {
-            background: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 1.2em;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            animation: popIn 0.3s ease-out;
-        }
-
-        @keyframes popIn {
-            0% {
-                transform: scale(0);
-            }
-
-            80% {
-                transform: scale(1.1);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        /* 出題画面 */
-        .question-box {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .timer-circle {
-            width: 80px;
-            height: 80px;
-            background: var(--k-purple);
-            border-radius: 50%;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2.5em;
-            font-weight: 900;
-            margin: 0 auto 20px;
-        }
-
-        .options-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .option-card {
-            color: white;
-            padding: 30px;
-            border-radius: 8px;
-            font-size: 1.8em;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            text-align: left;
-        }
-
-        .shape-icon {
-            font-size: 1.5em;
-            margin-right: 20px;
-            width: 50px;
-            text-align: center;
-        }
-
-        /* 結果画面 */
-        .podium-container {
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            height: 300px;
-            gap: 20px;
-            margin-top: 50px;
-        }
-
-        .podium-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 120px;
-            position: relative;
-        }
-
-        .podium-bar {
-            width: 100%;
-            border-radius: 10px 10px 0 0;
-            transition: height 1s ease-out;
-            height: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: white;
-        }
-
-        .podium-name {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-bottom: 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 120px;
-        }
-
-        .podium-score {
-            font-size: 1.5em;
-            font-weight: 900;
-            margin-top: 10px;
-        }
-
-        .place-1 .podium-bar {
-            background: #d89e00;
-        }
-
-        .place-2 .podium-bar {
-            background: #C0C0C0;
-        }
-
-        .place-3 .podium-bar {
-            background: #CD7F32;
-        }
-
-        .ranking-table {
-            max-width: 600px;
-            margin: 30px auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .ranking-table th,
-        .ranking-table td {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            text-align: left;
-            font-size: 1.2em;
-        }
-
-        .ranking-table th {
-            background: #f0f0f5;
-            font-weight: bold;
-        }
-
-        /* ランキングアニメーション */
-        @keyframes slideUpFadeIn {
-            0% {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .ranking-row {
-            animation: slideUpFadeIn 0.5s ease forwards;
-            opacity: 0;
-            /* 初期状態は透明 */
-            animation-delay: calc(var(--i) * 0.2s);
-            /* 順番に表示 */
-        }
-    </style>
-</head>
-
-<body>
-
-    <div id="loading" class="loading-overlay hidden">
-        <div>🚀 通信中...</div>
-    </div>
-
-    <div class="gas-settings">
-        <label style="font-weight:bold; color:var(--k-purple);">🌐 オンライン共有データベース (Apps Script URL)</label>
-        <input type="text" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
-        <button class="btn-main" style="padding: 5px 10px; font-size: 1em;" onclick="saveGASUrlAndLoad()">設定保存</button>
-    </div>
-
-    <div id="view-editor" class="container" style="padding: 10px;">
-        <div class="header">
-            <div class="config-row">
-                <select id="target-subject">
-                    <option value="国語">国語</option>
-                    <option value="数学">数学</option>
-                    <option value="理科">理科</option>
-                    <option value="社会">社会</option>
-                    <option value="英語">英語</option>
-                    <option value="保健体育">保健体育</option>
-                    <option value="美術">美術</option>
-                    <option value="家庭科">家庭科</option>
-                    <option value="技術">技術</option>
-                    <option value="音楽">音楽</option>
-                </select>
-                <select id="target-grade">
-                    <option value="1">1年</option>
-                    <option value="2">2年</option>
-                    <option value="3">3年</option>
-                </select>
-                <span>第</span><input type="number" id="target-round" value="1" min="1"
-                    style="width:40px;"><span>回</span>
-
-                <button class="btn-load" onclick="loadData()">読込</button>
-                <button class="btn-launch" onclick="hostQuiz()">▶️ リモート出題(ホスト)</button>
-                <button class="btn-main"
-                    style="background:#0b458e; padding: 8px 15px; font-size:0.9em; box-shadow:none; margin-left:10px;"
-                    onclick="exportLocalQuiz()">書出</button>
-            </div>
-            <div class="config-row" style="margin-top:10px;">
-                <input type="text" id="round-name" placeholder="タイトル (例: 音楽史クイズ)" style="width:300px;">
-                <button class="btn-danger-round" onclick="deleteRound()">削除</button>
-            </div>
-            <div class="config-row" style="margin-top:10px;">
-                <button class="btn-main btn-success" style="padding: 5px 15px; font-size: 0.9em;"
-                    onclick="openImportModal()">⬇️ 旧スプレッドシートからインポート</button>
-            </div>
-        </div>
-
-        <div class="main-content">
-            <div class="sidebar" id="editor-sidebar" style="display:none;">
-                <div id="q-list-container" style="flex:1; overflow-y:auto;">
-                    <!-- 問題リスト -->
-                </div>
-                <div class="sidebar-footer">
-                    <button class="btn-add-q" onclick="addNewQuestionNode()">＋ 問題を追加</button>
-                </div>
-            </div>
-
-            <div class="editor-main" id="editor-main-area" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 style="margin:0; color:#46178f;">Question Editor <span id="current-q-num"></span></h3>
-                    <button class="btn-delete-q" onclick="deleteCurrentQuestion()">🗑 削除</button>
-                </div>
-
-                <div class="form-group">
-                    <label>問題文</label>
-                    <input type="text" id="inp-text" class="full-width" placeholder="例: 日本で一番高い山は？"
-                        oninput="updateCurrentQuestionData()">
-                </div>
-
-                <div class="form-group" style="display:flex; gap: 20px;">
-                    <div>
-                        <label>制限時間（秒）</label>
-                        <input type="number" id="inp-time" value="15" min="5"
-                            style="padding:10px; width: 80px; font-size:1.1em; border:1px solid #ccc; border-radius:4px;"
-                            oninput="updateCurrentQuestionData()"> 秒
-                    </div>
-                    <div style="flex:1;">
-                        <label>正解の選択肢</label>
-                        <select id="inp-correct" class="full-width" style="padding:10px;"
-                            onchange="updateCurrentQuestionData()">
-                            <option value="0">選択肢 1 (赤 ▲)</option>
-                            <option value="1">選択肢 2 (青 ◆)</option>
-                            <option value="2">選択肢 3 (黄 ●)</option>
-                            <option value="3">選択肢 4 (緑 ■)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <label>選択肢の内容</label>
-                <div class="editor-options-grid">
-                    <div><label style="color:var(--k-red); font-size:0.8em;">選択肢 1 (▲)</label><input type="text"
-                            id="inp-opt0" class="full-width" oninput="updateCurrentQuestionData()"></div>
-                    <div><label style="color:var(--k-blue); font-size:0.8em;">選択肢 2 (◆)</label><input type="text"
-                            id="inp-opt1" class="full-width" oninput="updateCurrentQuestionData()"></div>
-                    <div><label style="color:var(--k-yellow); font-size:0.8em;">選択肢 3 (●)</label><input type="text"
-                            id="inp-opt2" class="full-width" oninput="updateCurrentQuestionData()"></div>
-                    <div><label style="color:var(--k-green); font-size:0.8em;">選択肢 4 (■)</label><input type="text"
-                            id="inp-opt3" class="full-width" oninput="updateCurrentQuestionData()"></div>
-                </div>
-            </div>
-
-            <div id="empty-view"
-                style="flex:1; display:flex; justify-content:center; align-items:center; flex-direction:column; color:#ccc;">
-                <h2>👈 教科・学年・回を選んで「読込」を押してください</h2>
-            </div>
-        </div>
-
-        <div class="toolbar"
-            style="padding: 15px 20px; background: #eee; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
-            <div id="status" class="status" style="font-weight:bold;"></div>
-            <button class="btn-main btn-success" onclick="saveQuiz()">保存する (Save)</button>
-        </div>
-    </div>
-
-    <!-- インポートモーダル -->
-    <div id="import-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 style="color: var(--k-purple); margin-top: 0;">⬇️ 旧スプレッドシートからインポート</h2>
-            <p style="color: #666; font-size: 0.9em; margin-bottom: 20px;">
-                <strong>方法1: コピー＆ペースト</strong><br>
-                過去の「Baboot!」のスプレッドシート（A列〜P列など）をコピーして下の枠に貼り付けてください。<br>
-                <strong>方法2: URLから直接インポート（推奨）</strong><br>
-                旧スプレッドシートを開き、「ファイル」＞「共有」＞「ウェブに公開」から「<strong>CSV形式</strong>」を選んで公開し、発行されたURLを入力してください。<br>
-                <br>
-                ※ インポートすると現在画面で編集中の問題は上書きされます。
-            </p>
-            <div style="margin-bottom: 15px;">
-                <label style="font-weight: bold; color: var(--k-blue); display:block; margin-bottom:5px;">🌐
-                    ウェブに公開されたCSVのURL (方法2)</label>
-                <input type="text" id="import-url-input"
-                    placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
-                    style="width: 100%; box-sizing: border-box;">
-            </div>
-
-            <label style="font-weight: bold; color: var(--k-purple);">📝 直接貼り付け (方法1)</label>
-            <textarea id="import-textarea" placeholder="ここにスプレッドシートの行を貼り付け..."></textarea>
-
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                <button class="btn-main" style="background: #ccc; box-shadow: 0 4px 0 #999; color: #333;"
-                    onclick="closeImportModal()">キャンセル</button>
-                <button class="btn-main btn-success" style="margin-top: 0; background: #26890c;"
-                    onclick="processRoundListImportData()">RoundListの一括インポート</button>
-                <button class="btn-main btn-next" style="margin-top: 0;"
-                    onclick="processImportData()">問題データのインポート</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 【1】待機画面 -->
-    <div id="view-lobby" class="container hidden">
-        <h2 style="margin-top: 50px;">黒板にこのPIN（6桁の数字）を書いて、参加を待とう！</h2>
-        <div class="pin-display" id="display-pin">------</div>
-        <h3 id="current-quiz-title" style="color:var(--k-purple);"></h3>
-        <br>
-        <button class="btn-main btn-success" id="btn-start" onclick="startGame()" disabled
-            style="font-size: 1.5em; padding: 15px 40px;">全員揃ったらスタート！</button>
-        <button class="btn-main btn-danger" onclick="backToDashboard()"
-            style="display:block; margin: 20px auto;">やめる</button>
-        <div style="font-size: 1.2em; font-weight: bold; margin-top: 20px;">現在の参加人数: <span id="player-count">0</span> 人
-        </div>
-        <div class="player-grid" id="player-grid"></div>
-    </div>
-
-    <!-- 【2】出題画面 -->
-    <div id="view-question" class="container hidden">
-        <div style="text-align: left; font-weight: bold; font-size: 1.2em; color: #666; margin-bottom: 10px;">
-            Q<span id="q-num">1</span>
-            <button class="btn-main btn-danger btn-small" onclick="showFinalResult()"
-                style="float:right; font-size: 0.8em; padding: 5px 10px;">■ 途中で終了する</button>
-            <div style="clear:both;"></div>
-        </div>
-
-        <div id="pre-read-overlay"
-            style="background:#fff3cd; color:#856404; padding:10px; margin-bottom:10px; border-radius:5px; font-weight:bold; font-size:1.2em; border:1px solid #ffeeba;">
-            問題を読む時間です... (<span id="pre-timer">7</span>)
-        </div>
-
-        <div class="question-box" id="q-text">問題文がここに入ります</div>
-        <div class="timer-circle" id="q-timer">15</div>
-        <div class="options-grid" id="options-area"></div>
-    </div>
-
-    <!-- 【3-A】正解発表画面 (NEW) -->
-    <div id="view-reveal" class="container hidden">
-        <h2>正解は...</h2>
-        <div id="reveal-correct-box"
-            style="margin: 30px auto; padding: 30px; border-radius: 12px; color: white; font-size: 2em; font-weight: bold; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-            <!-- 正解の選択肢がここに入る -->
-        </div>
-        <button class="btn-main btn-next" onclick="showInterimRanking()" style="margin-top:20px;">ランキングを表示 ＞</button>
-    </div>
-
-    <!-- 【3-B】中間発表画面 -->
-    <div id="view-interim" class="container hidden">
-        <h2>今の問題のランキング（Top 5）</h2>
-        <table class="ranking-table" id="interim-table"></table>
-        <button class="btn-main btn-next" onclick="nextQuestion()">次の問題へ ＞</button>
-        <div style="clear:both;"></div>
-    </div>
-
-    <!-- 【4】最終結果画面 -->
-    <div id="view-result" class="container hidden">
-        <h1 style="font-size: 3em; margin-top: 20px;">最終結果発表！🏆</h1>
-
-        <div class="podium-container">
-            <div class="podium-item place-2">
-                <div class="podium-name" id="name-2"></div>
-                <div class="podium-bar" id="bar-2">
-                    <div class="podium-score" id="score-2"></div>
-                </div>
-            </div>
-            <div class="podium-item place-1">
-                <div class="podium-name" id="name-1"></div>
-                <div class="podium-bar" id="bar-1">
-                    <div class="podium-score" id="score-1"></div>
-                </div>
-            </div>
-            <div class="podium-item place-3">
-                <div class="podium-name" id="name-3"></div>
-                <div class="podium-bar" id="bar-3">
-                    <div class="podium-score" id="score-3"></div>
-                </div>
-            </div>
-        </div>
-
-        <table class="ranking-table" id="final-table" style="margin-top: 50px;"></table>
-        <div style="display: flex; gap: 20px; justify-content: center; margin-top: 30px;">
-            <button class="btn-main btn-success" onclick="downloadCSV()">成績をダウンロード(CSV)</button>
-            <button class="btn-main" onclick="backToDashboard()">ダッシュボードに戻る</button>
-        </div>
-    </div>
-
-    <script>
+        const pass = prompt("Baboot! 管理画面\n\nアクセスするにはパスワードを入力してください。\n        // ==========================================
+        // 3. ゲームホスト・進行処理 (Firebase 6桁PIN化)
         // ==========================================
-        // 1. クイズデータ管理 (GAS & LocalStorage)
-        // ==========================================
-        let savedQuizzes = [];
-        let currentEditingQuizId = null;
+        const players = {};
+        let activeQuiz = null;
+        let currentQIndex = -1;
+        let timerInterval = null;
+        let remainingTime = 0;
+        let currentRoomId = null;
+        let roomRef = null;
 
-        // ▼▼▼ ここに先生のGAS URLを貼り付けてください ▼▼▼
-        const HARDCODED_GAS_URL = "https://script.google.com/macros/s/AKfycbxC8UH-5w1hlt8Z3tZKlhruDU1iS0EAwGYx_5I4L9YWz6x3KVmh9ha_tePY3x7kAhHtbA/exec";
-        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-
-        let gasUrl = localStorage.getItem('baboot_gas_url') || HARDCODED_GAS_URL;
-
-        // エディタ用データ
-        let editingQuestions = [];
-        let currentSelectedQIndex = -1;
-
-        async function initDashboard() {
-            if (gasUrl) {
-                document.getElementById('gas-url-input').value = gasUrl;
-                await fetchAllFromGAS();
-            } else {
-                const localData = localStorage.getItem('baboot_quizzes_local');
-                if (localData) savedQuizzes = JSON.parse(localData);
-                else savedQuizzes = [];
-            }
-        }
-
-        function saveGASUrlAndLoad() {
-            const inputUrl = document.getElementById('gas-url-input').value.trim();
-            if (inputUrl !== gasUrl || inputUrl === "") {
-                const pass = prompt("URLの設定を変更するにはパスワードを入力してください。\n(デフォルトは baboot です)");
-                if (pass !== "baboot") {
-                    alert("パスワードが違います。");
-                    return;
-                }
+        function hostQuiz() {
+            if (!currentEditingQuizId) {
+                return alert("出題する前に、まず「読込」ボタンを押してデータを開いてください。");
             }
 
-            gasUrl = inputUrl;
-            localStorage.setItem('baboot_gas_url', gasUrl);
-            if (gasUrl) { fetchAllFromGAS(); }
-            else {
-                alert("オンラインデータベースを解除し、ローカルモードに切り替えます。");
-                savedQuizzes = JSON.parse(localStorage.getItem('baboot_quizzes_local') || '[]');
+            const targetId = getCombinedId();
+            if (currentEditingQuizId !== targetId) {
+                return alert("教科・学年・回の選択が変更されています。再度「読込」を押してください。");
             }
-        }
 
-        async function fetchAllFromGAS() {
-            showLoading(true);
-            try {
-                const response = await fetch(gasUrl, { method: 'GET', redirect: 'follow' });
-                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-                const data = await response.json();
+            activeQuiz = {
+                id: currentEditingQuizId,
+                title: document.getElementById('round-name').value.trim() || '無題のクイズ',
+                questions: editingQuestions.filter(q => q.text.trim() !== "")
+            };
 
-                if (Array.isArray(data)) {
-                    savedQuizzes = data;
-                } else if (data && data.error) {
-                    throw new Error(data.error);
-                } else {
-                    alert("GASから正しくデータを取得できませんでした。");
-                }
-            } catch (e) {
-                alert("通信エラーが発生しました。URLが正しいか、デプロイ設定が「全員」になっているか確認してください。");
+            if (activeQuiz.questions.length === 0) {
+                return alert("問題が1問もありません。作成してからホストしてください。");
             }
-            showLoading(false);
-        }
 
-        async function syncToGAS(action, quizId, subject = 'その他', quizData = null) {
-            if (!gasUrl) {
-                localStorage.setItem('baboot_quizzes_local', JSON.stringify(savedQuizzes));
-                return true;
-            }
-            showLoading(true);
-            try {
-                await fetch(gasUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify({ action: action, id: quizId, subject: subject, quiz: quizData })
-                });
-            } catch (e) { console.error(e); }
-            showLoading(false);
-            return true;
-        }
-
-        function showLoading(show) {
-            document.getElementById('loading').className = show ? 'loading-overlay' : 'loading-overlay hidden';
-        }
-
-        function showStatus(msg, type) {
-            const el = document.getElementById('status');
-            el.innerText = msg;
-            el.style.color = type === 'success' ? '#26890c' : '#46178f';
-            setTimeout(() => { if (type === 'success') el.innerText = ""; }, 3000);
-        }
-
-        // ==========================================
-        // 2. 教科/学年/回 で読み込み・管理
-        // ==========================================
-        function getCombinedId() {
+            document.getElementById('view-editor').classList.add('hidden');
+            document.getElementById('view-lobby').classList.remove('hidden');
             const s = document.getElementById('target-subject').value;
             const g = document.getElementById('target-grade').value;
             const r = document.getElementById('target-round').value;
-            return `${s}_${g}_${r}`;
-        }
+            document.getElementById('current-quiz-title').innerText = `プレイ中: ${s} ${g}年 第${r}回 - ${activeQuiz.title}`;
 
-        function loadData() {
-            const targetId = getCombinedId();
-            currentEditingQuizId = targetId;
+            Object.keys(players).forEach(k => delete players[k]);
+            document.getElementById('player-grid').innerHTML = '';
+            document.getElementById('player-count').innerText = 0;
+            document.getElementById('btn-start').disabled = true;
 
-            const quiz = savedQuizzes.find(q => q.id === targetId);
-            if (quiz) {
-                document.getElementById('round-name').value = quiz.title || "";
-                editingQuestions = JSON.parse(JSON.stringify(quiz.questions || []));
-                showStatus("読み込み完了", "success");
-            } else {
-                document.getElementById('round-name').value = "";
-                editingQuestions = [];
-                showStatus("新規作成モード", "success");
-            }
+            // 6桁の数字PINを生成 (100000 ~ 999999)
+            const shortPin = Math.floor(100000 + Math.random() * 900000).toString();
+            currentRoomId = 'baboot-' + shortPin;
 
-            document.getElementById('empty-view').style.display = 'none';
-            document.getElementById('editor-main-area').style.display = 'block';
-            document.getElementById('editor-sidebar').style.display = 'flex';
+            document.getElementById('display-pin').innerText = "通信開始中...";
+            document.getElementById('display-pin').style.fontSize = "2em";
+            document.getElementById('display-pin').style.color = "orange";
+            
+            // Set up Firebase Room
+            roomRef = db.ref('rooms/' + currentRoomId);
+            
+            // Previous listeners cleanup
+            db.ref('rooms').off();
 
-            if (editingQuestions.length === 0) {
-                addNewQuestionNode();
-            } else {
-                renderSidebarList();
-                selectQuestion(0);
-            }
-        }
+            roomRef.set({
+                state: 'LOBBY',
+                created: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                document.getElementById('display-pin').style.color = "var(--k-purple)";
+                document.getElementById('display-pin').style.fontSize = "5em";
+                document.getElementById('display-pin').innerText = shortPin;
+                
+                // Clear the room on disconnect as cleanup
+                roomRef.onDisconnect().remove();
 
-        function renderSidebarList() {
-            const container = document.getElementById('q-list-container');
-            container.innerHTML = '';
-            editingQuestions.forEach((q, i) => {
-                const div = document.createElement('div');
-                div.className = 'q-list-item' + (i === currentSelectedQIndex ? ' active' : '');
-                div.onclick = () => selectQuestion(i);
-                div.innerHTML = `
-          <span class="q-num">Q${i + 1}</span>
-          <span class="q-title" style="margin-left:10px;">${q.text || '(未入力)'}</span>
-        `;
-                container.appendChild(div);
+                // Listen for joining students
+                roomRef.child('students').on('child_added', (snap) => {
+                    const studentId = snap.key;
+                    const data = snap.val();
+                    if (!players[studentId]) {
+                        players[studentId] = { studentId: studentId, name: data.name, score: 0, streak: 0, hasAnsweredThisRound: false };
+                        const tag = document.createElement('div'); 
+                        tag.className = 'player-tag'; 
+                        tag.innerText = data.name;
+                        tag.id = "ptag-" + studentId;
+                        document.getElementById('player-grid').appendChild(tag);
+                        document.getElementById('player-count').innerText = Object.keys(players).length;
+                        document.getElementById('btn-start').disabled = false;
+                    }
+                });
+                
+                roomRef.child('students').on('child_removed', (snap) => {
+                    const studentId = snap.key;
+                    if (players[studentId]) {
+                        delete players[studentId];
+                        const tag = document.getElementById("ptag-" + studentId);
+                        if(tag) tag.remove();
+                        document.getElementById('player-count').innerText = Object.keys(players).length;
+                        if(Object.keys(players).length === 0) document.getElementById('btn-start').disabled = true;
+                    }
+                });
+
+                // Listen for answers
+                roomRef.child('answers').on('child_added', (snap) => {
+                    const studentId = snap.key;
+                    const data = snap.val();
+                    const p = players[studentId];
+                    if (!p || p.hasAnsweredThisRound) return;
+                    p.hasAnsweredThisRound = true;
+
+                    const currentQ = activeQuiz.questions[currentQIndex];
+                    if(!currentQ) return;
+                    
+                    const isCorrect = (data.choice === currentQ.correctIndex);
+                    let points = 0; let bonus = 0;
+
+                    if (isCorrect) {
+                        points = Math.max(500, Math.round(1000 - (data.timeTaken * 30)));
+                        p.streak++;
+                        if (p.streak >= 2) bonus = Math.min(500, (p.streak - 1) * 100);
+                        p.score += (points + bonus);
+                    } else { p.streak = 0; }
+
+                    p.lastResult = { isCorrect: isCorrect, points: points, bonus: bonus };
+                    checkAllAnswered();
+                });
+
+            }).catch(e => {
+                document.getElementById('display-pin').innerText = "エラー発生";
             });
         }
 
-        function selectQuestion(index) {
-            if (index < 0 || index >= editingQuestions.length) return;
-            currentSelectedQIndex = index;
-            renderSidebarList();
-
-            const q = editingQuestions[index];
-            document.getElementById('current-q-num').innerText = `#${index + 1}`;
-            document.getElementById('inp-text').value = q.text || '';
-            document.getElementById('inp-time').value = q.time || 15;
-            document.getElementById('inp-correct').value = q.correctIndex || 0;
-
-            const opts = q.options || ['', '', '', ''];
-            document.getElementById('inp-opt0').value = opts[0] || '';
-            document.getElementById('inp-opt1').value = opts[1] || '';
-            document.getElementById('inp-opt2').value = opts[2] || '';
-            document.getElementById('inp-opt3').value = opts[3] || '';
-        }
-
-        function updateCurrentQuestionData() {
-            if (currentSelectedQIndex < 0) return;
-            const q = editingQuestions[currentSelectedQIndex];
-            q.text = document.getElementById('inp-text').value;
-            q.time = parseInt(document.getElementById('inp-time').value) || 15;
-            q.correctIndex = parseInt(document.getElementById('inp-correct').value) || 0;
-            q.options = [
-                document.getElementById('inp-opt0').value,
-                document.getElementById('inp-opt1').value,
-                document.getElementById('inp-opt2').value,
-                document.getElementById('inp-opt3').value
-            ];
-            renderSidebarList();
-        }
-
-        function addNewQuestionNode() {
-            editingQuestions.push({ text: '', time: 15, options: ['', '', '', ''], correctIndex: 0 });
-            selectQuestion(editingQuestions.length - 1);
-        }
-
-        function deleteCurrentQuestion() {
-            if (editingQuestions.length <= 1) {
-                alert("最低1つの問題が必要です！"); return;
-            }
-            if (confirm('この問題を削除しますか？')) {
-                editingQuestions.splice(currentSelectedQIndex, 1);
-                selectQuestion(Math.max(0, currentSelectedQIndex - 1));
-            }
-        }
-
-        async function saveQuiz() {
-            if (!currentEditingQuizId) return alert("先に「読込」を押してください。");
-            const title = document.getElementById('round-name').value.trim() || '無題のクイズ';
-            const subject = document.getElementById('target-subject').value;
-
-            const validQuestions = editingQuestions.filter(q => q.text.trim() !== "");
-            if (validQuestions.length === 0) {
-                alert("1つ以上の問題文を入力してください"); return;
-            }
-
-            showStatus("保存中...", "loading");
-
-            const newQuiz = { id: currentEditingQuizId, subject: subject, title, questions: validQuestions };
-            const existingIndex = savedQuizzes.findIndex(q => q.id === currentEditingQuizId);
-
-            if (existingIndex >= 0) { savedQuizzes[existingIndex] = newQuiz; }
-            else { savedQuizzes.push(newQuiz); }
-
-            await syncToGAS('save', currentEditingQuizId, subject, newQuiz);
-            showStatus("保存しました！", "success");
-        }
-
-        async function deleteRound() {
-            const targetId = getCombinedId();
-            const subject = document.getElementById('target-subject').value;
-            if (confirm('現在選択されている 教科/学年/回 のクイズを完全に削除しますか？')) {
-                savedQuizzes = savedQuizzes.filter(q => q.id !== targetId);
-                await syncToGAS('delete', targetId, subject);
-                alert("削除しました。");
-                document.getElementById('round-name').value = "";
-                editingQuestions = [];
-                document.getElementById('empty-view').style.display = 'flex';
-                document.getElementById('editor-main-area').style.display = 'none';
-                document.getElementById('editor-sidebar').style.display = 'none';
-                renderSidebarList();
-            }
-        }
-
-        function exportLocalQuiz() {
-            const targetId = getCombinedId();
-            const quiz = savedQuizzes.find(q => q.id === targetId);
-            if (!quiz) return alert("エクスポートするデータがありません。先に保存してください。");
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quiz, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", `Baboot_${quiz.id}_${quiz.title}.json`);
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        // ==========================================
-        // 2-B. 旧スプレッドシートデータ インポート機能
-        // ==========================================
-        function openImportModal() {
-            if (!currentEditingQuizId) {
-                return alert("インポートする前に、まず該当する「教科・学年・回」を選んで「読込」ボタンを押してください。");
-            }
-            document.getElementById('import-textarea').value = '';
-            document.getElementById('import-url-input').value = '';
-            document.getElementById('import-modal').classList.remove('hidden');
-        }
-
-        function closeImportModal() {
-            document.getElementById('import-modal').classList.add('hidden');
-        }
-
-        // CSVの簡易パーサー (カンマ区切り、ダブルクォート対応)
-        function parseCSVToArray(text) {
-            const result = [];
-            let row = [];
-            let inQuotes = false;
-            let val = '';
-            for (let i = 0; i < text.length; i++) {
-                let char = text[i];
-                let nextChar = text[i + 1];
-                if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        val += '"'; i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    row.push(val); val = '';
-                } else if ((char === '\n' || char === '\r') && !inQuotes) {
-                    if (char === '\r' && nextChar === '\n') { i++; }
-                    row.push(val); result.push(row); row = []; val = '';
-                } else {
-                    val += char;
-                }
-            }
-            if (val !== '' || row.length > 0) { row.push(val); result.push(row); }
-            return result;
-        }
-
-        async function processImportData() {
-            const rawData = document.getElementById('import-textarea').value;
-            const urlInput = document.getElementById('import-url-input').value.trim();
-
-            let rows = [];
-
-            if (urlInput) {
-                // URLから取得する場合
-                try {
-                    showStatus("データを取得中...", "loading");
-                    const res = await fetch(urlInput);
-                    if (!res.ok) throw new Error("ネットワークエラー");
-                    const csvText = await res.text();
-                    rows = parseCSVToArray(csvText);
-                    showStatus("", "success");
-                } catch (e) {
-                    alert("URLからの取得に失敗しました。URLが間違っているか、ウェブに公開(CSV形式)されていない可能性があります。");
-                    showStatus("", "success");
-                    return;
-                }
-            } else if (rawData.trim()) {
-                // コピー＆ペーストの場合 (タブ区切り)
-                const textRows = rawData.split('\n');
-                rows = textRows.map(r => r.split('\t'));
-            } else {
-                alert("URLかデータのどちらかを入力してください。");
-                return;
-            }
-
-            const importedQuestions = [];
-
-            for (let i = 0; i < rows.length; i++) {
-                const cols = rows[i];
-                if (cols.length < 2) continue;
-
-                // スプレッドシートの公開CSVの場合、最初の行はヘッダーかもしれないのでスキップするロジック
-                if (i === 0 && cols[0] === '正解番号') continue;
-
-                const correctData = cols[0] ? String(cols[0]).trim() : "1";
-                const questionText = cols[1] ? String(cols[1]).trim() : "";
-                if (!questionText) continue;
-
-                let correctIdx = parseInt(correctData) - 1;
-                if (isNaN(correctIdx) || correctIdx < 0 || correctIdx > 3) correctIdx = 0;
-
-                const op1 = cols.length > 4 ? String(cols[4]).trim() : "";
-                const op2 = cols.length > 7 ? String(cols[7]).trim() : "";
-                const op3 = cols.length > 10 ? String(cols[10]).trim() : "";
-                const op4 = cols.length > 13 ? String(cols[13]).trim() : "";
-
-                importedQuestions.push({
-                    text: questionText,
-                    time: 15,
-                    options: [op1, op2, op3, op4],
-                    correctIndex: correctIdx
+        function backToDashboard() {
+            ['view-lobby', 'view-question', 'view-interim', 'view-result'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById('view-editor').classList.remove('hidden');
+            clearInterval(timerInterval);
+            
+            if (roomRef) {
+                broadcast({ type: "END" });
+                // Room cleanup
+                roomRef.remove().then(() => {
+                    roomRef = null;
                 });
             }
+        }
 
-            if (importedQuestions.length === 0) {
-                alert("有効な問題行が見つかりませんでした。データを確認してください。");
-                return;
+        function broadcast(dataObj) {
+            if (!roomRef) return;
+            // Write to the broadcast node to update all clients
+            roomRef.child('broadcast').set({
+                ...dataObj,
+                _timestamp: firebase.database.ServerValue.TIMESTAMP // ensure it refreshes on client
+            });
+        }
+
+        function startGame() {
+            document.getElementById('view-lobby').classList.add('hidden');
+            currentQIndex = -1; nextQuestion();
+        }
+
+        function nextQuestion() {
+            currentQIndex++;
+            if (currentQIndex >= activeQuiz.questions.length) { showFinalResult(); return; }
+
+            const q = activeQuiz.questions[currentQIndex];
+            document.getElementById('view-interim').classList.add('hidden');
+            document.getElementById('view-question').classList.remove('hidden');
+            document.getElementById('q-num').innerText = currentQIndex + 1;
+            
+            let qTextHtml = `<div>${q.text}</div>`;
+            if (q.text_en || q.text_zh) {
+                qTextHtml += `<div style="font-size:0.6em; margin-top:10px; font-weight:normal; color:#555;">`;
+                if (q.text_en) qTextHtml += `<span style="margin-right:20px;">🇺🇸 ${q.text_en}</span>`;
+                if (q.text_zh) qTextHtml += `<span>🇨🇳 ${q.text_zh}</span>`;
+                qTextHtml += `</div>`;
             }
+            document.getElementById('q-text').innerHTML = qTextHtml;
 
-            if (confirm(`${importedQuestions.length}問 読み込みました。\n現在の編集データは上書きされます。よろしいですか？`)) {
-                editingQuestions = importedQuestions;
-                renderSidebarList();
-                selectQuestion(0);
-                closeImportModal();
-                showStatus("インポート成功。保存ボタンを押してください。", "success");
+            const colors = ['bg-red', 'bg-blue', 'bg-yellow', 'bg-green'];
+            const shapes = ['▲', '◆', '●', '■'];
+            document.getElementById('options-area').innerHTML = q.options.map((opt, i) => {
+                let optHtml = `<div style="font-size:1em;">${opt || '(なし)'}</div>`;
+                if ((q.options_en && q.options_en[i]) || (q.options_zh && q.options_zh[i])) {
+                    optHtml += `<div style="font-size:0.65em; margin-top:8px; font-weight:normal; line-height:1.2; opacity:0.9;">`;
+                    if (q.options_en && q.options_en[i]) optHtml += `<div style="margin-bottom:2px;">🇺🇸 ${q.options_en[i]}</div>`;
+                    if (q.options_zh && q.options_zh[i]) optHtml += `<div>🇨🇳 ${q.options_zh[i]}</div>`;
+                    optHtml += `</div>`;
+                }
+                return `<div class="option-card ${colors[i]}" style="display:flex; align-items:center; text-align:left;">
+                    <span class="shape-icon">${shapes[i]}</span>
+                    <div style="flex:1;">${optHtml}</div>
+                </div>`;
+            }).join('');
+
+            document.getElementById('q-timer').innerText = q.time;
+            document.getElementById('pre-read-overlay').classList.remove('hidden');
+            document.getElementById('options-area').classList.add('hidden'); 
+
+            let preTime = 7;
+            document.getElementById('pre-timer').innerText = preTime;
+
+            Object.values(players).forEach(p => p.hasAnsweredThisRound = false);
+            
+            // Clear previous answers
+            if(roomRef) roomRef.child('answers').remove();
+            if(roomRef) roomRef.child('results').remove();
+
+            broadcast({
+                type: "PRE_QUESTION",
+                qNum: currentQIndex + 1,
+                time: q.time,
+                qText: q.text,
+                qText_en: q.text_en,
+                qText_zh: q.text_zh,
+                qOptions: q.options,
+                qOptions_en: q.options_en,
+                qOptions_zh: q.options_zh,
+                preTime: preTime
+            });
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                preTime--;
+                document.getElementById('pre-timer').innerText = preTime;
+
+                if (preTime <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('pre-read-overlay').classList.add('hidden');
+                    document.getElementById('options-area').classList.remove('hidden'); 
+
+                    broadcast({ type: "QUESTION_START" });
+
+                    remainingTime = q.time;
+                    document.getElementById('q-timer').innerText = remainingTime;
+                    timerInterval = setInterval(() => {
+                        remainingTime--;
+                        document.getElementById('q-timer').innerText = remainingTime;
+                        if (remainingTime <= 0) { clearInterval(timerInterval); finishQuestionPhase(); }
+                    }, 1000);
+                }
+            }, 1000);
+        }
+
+        function checkAllAnswered() {
+            if (Object.values(players).every(p => p.hasAnsweredThisRound)) {
+                clearInterval(timerInterval); setTimeout(finishQuestionPhase, 1000);
             }
         }
 
-        async function processRoundListImportData() {
-            const rawData = document.getElementById('import-textarea').value;
-            const urlInput = document.getElementById('import-url-input').value.trim();
+        function finishQuestionPhase() {
+            document.getElementById('view-question').classList.add('hidden');
+            document.getElementById('view-reveal').classList.remove('hidden');
 
-            let rows = [];
+            const q = activeQuiz.questions[currentQIndex];
+            const correctIndex = parseInt(q.correctIndex); 
+            const colors = ['bg-red', 'bg-blue', 'bg-yellow', 'bg-green'];
+            const shapes = ['▲', '◆', '●', '■'];
 
-            if (urlInput) {
-                try {
-                    showStatus("データを取得中...", "loading");
-                    const res = await fetch(urlInput);
-                    if (!res.ok) throw new Error("ネットワークエラー");
-                    const csvText = await res.text();
-                    rows = parseCSVToArray(csvText);
-                    showStatus("", "success");
-                } catch (e) {
-                    alert("URLからの取得に失敗しました。URLが間違っているか、ウェブに公開(CSV形式)されていない可能性があります。");
-                    showStatus("", "success");
-                    return;
+            const revealBox = document.getElementById('reveal-correct-box');
+            revealBox.className = colors[correctIndex];
+            revealBox.innerHTML = `<span style="font-size:1.5em; margin-right:15px;">${shapes[correctIndex]}</span> ${q.options[correctIndex] || '(なし)'}`;
+
+            // Publish results to Firebase
+            const resultsData = {};
+            Object.values(players).forEach(p => {
+                if (!p.hasAnsweredThisRound) {
+                    p.streak = 0;
+                    resultsData[p.studentId] = { type: "RESULT", isCorrect: false, points: 0, bonus: 0 };
+                } else if (p.lastResult) {
+                    resultsData[p.studentId] = { type: "RESULT", isCorrect: p.lastResult.isCorrect, points: p.lastResult.points, bonus: p.lastResult.bonus };
                 }
-            } else if (rawData.trim()) {
-                const textRows = rawData.split('\n');
-                rows = textRows.map(r => r.split('\t'));
-            } else {
-                alert("URLかデータのどちらかを入力してください。");
+            });
+            if(roomRef) roomRef.child('results').set(resultsData);
+        }
+
+        function showInterimRanking() {
+            document.getElementById('view-reveal').classList.add('hidden');
+            document.getElementById('view-interim').classList.remove('hidden');
+
+            const sorted = Object.values(players).sort((a, b) => b.score - a.score);
+
+            const top5Data = sorted.slice(0, 5).map(p => ({ name: p.name, score: p.score, streak: p.streak }));
+            broadcast({ type: "RANKING", top5: top5Data });
+
+            document.getElementById('interim-table').innerHTML = '<tr><th>順位</th><th>名前</th><th>スコア</th><th>連続<br>正解</th></tr>' +
+                sorted.slice(0, 5).map((p, i) => `<tr class="ranking-row" style="--i: ${i};"><td>${i + 1}</td><td>${p.name}</td><td>${p.score}</td><td>${p.streak >= 2 ? `🔥x${p.streak}` : '-'}</td></tr>`).join('');
+        }
+
+        function showFinalResult() {
+            clearInterval(timerInterval);
+            document.getElementById('view-question').classList.add('hidden');
+            document.getElementById('view-interim').classList.add('hidden');
+            document.getElementById('view-result').classList.remove('hidden');
+
+            const sorted = Object.values(players).sort((a, b) => b.score - a.score);
+
+            const finalData = sorted.map((p, idx) => ({ rank: idx + 1, name: p.name, score: p.score }));
+            broadcast({ type: "FINAL_RANKING", results: finalData });
+
+            [1, 2, 3].forEach(i => {
+                document.getElementById(`name-${i}`).innerText = '';
+                document.getElementById(`score-${i}`).innerText = '';
+                document.getElementById(`bar-${i}`).style.height = '0px';
+            });
+
+            if (sorted[0]) { document.getElementById('name-1').innerText = sorted[0].name; document.getElementById('score-1').innerText = sorted[0].score; setTimeout(() => document.getElementById('bar-1').style.height = "250px", 500); }
+            if (sorted[1]) { document.getElementById('name-2').innerText = sorted[1].name; document.getElementById('score-2').innerText = sorted[1].score; setTimeout(() => document.getElementById('bar-2').style.height = "180px", 800); }
+            if (sorted[2]) { document.getElementById('name-3').innerText = sorted[2].name; document.getElementById('score-3').innerText = sorted[2].score; setTimeout(() => document.getElementById('bar-3').style.height = "120px", 1100); }
+
+            if (sorted.length > 3) {
+                let tableHtml = ''; for (let i = 3; i < sorted.length; i++) tableHtml += `<tr><td>${i + 1}位</td><td>${sorted[i].name}</td><td>${sorted[i].score}</td></tr>`;
+                document.getElementById('final-table').innerHTML = tableHtml;
+            }
+            broadcast({ type: "END" });
+        }
+
+        function downloadCSV() {
+            const sorted = Object.values(players).sort((a, b) => b.score - a.score);
+            if (sorted.length === 0) {
+                alert("参加者がいないか、スコアデータがありません。");
                 return;
             }
 
-            let importCount = 0;
-            const newOrUpdatedQuizzes = [];
+            let csvContent = "\uFEFF";
+            csvContent += "順位,名前,スコア\n";
 
-            for (let i = 0; i < rows.length; i++) {
-                const cols = rows[i];
-                if (cols.length < 4) continue;
-                if (i === 0 && cols[0] === '教科') continue;
-
-                const subject = String(cols[0]).trim();
-                const grade = String(cols[1]).trim();
-                const round = String(cols[2]).trim();
-                const title = String(cols[3]).trim();
-
-                if (!subject || !grade || !round) continue;
-
-                const id = `${subject}_${grade}_${round}`;
-                const existingIndex = savedQuizzes.findIndex(q => q.id === id);
-
-                let qObj;
-                if (existingIndex >= 0) {
-                    savedQuizzes[existingIndex].title = title;
-                    qObj = savedQuizzes[existingIndex];
-                } else {
-                    qObj = { id: id, subject: subject, title: title, questions: [] };
-                    savedQuizzes.push(qObj);
+            sorted.forEach((p, index) => {
+                let name = p.name ? p.name.replace(/"/g, '""') : '不明';
+                if (name.includes(',') || name.includes('\\n') || name.includes('"')) {
+                    name = `"${name}"`;
                 }
-                newOrUpdatedQuizzes.push(qObj);
-                importCount++;
-            }
+                csvContent += `${index + 1},${name},${p.score}\n`;
+            });
 
-            if (importCount === 0) {
-                alert("有効なRoundList行が見つかりませんでした。データを確認してください。");
-                return;
-            }
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const s = document.getElementById('target-subject').value;
+            const g = document.getElementById('target-grade').value;
+            const r = document.getElementById('target-round').value;
+            const title = activeQuiz ? activeQuiz.title : "無題";
+            const filename = `Baboot成績_${s}_${g}年_第${r}回_${title}.csv`;
 
-            if (confirm(`${importCount}件のタイトル枠を読み込みました。\nGAS(オンライン)に一括作成・保存しますか？\n（※数十秒かかる場合があります。問題の登録は後で各回ごとに行ってください）`)) {
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+\n（※数十秒かかる場合があります。問題の登録は後で各回ごとに行ってください）`)) {
                 closeImportModal();
                 localStorage.setItem('baboot_quizzes_local', JSON.stringify(savedQuizzes));
 
