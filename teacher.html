@@ -669,11 +669,24 @@
         <div class="modal-content">
             <h2 style="color: var(--k-purple); margin-top: 0;">⬇️ 旧スプレッドシートからインポート</h2>
             <p style="color: #666; font-size: 0.9em; margin-bottom: 20px;">
-                過去の「Baboot!」のスプレッドシート（A列〜P列など）から、データがある行をコピーして下の枠に貼り付けてください。<br>
-                ※ A列：正解番号 (1〜4) 、 B列：問題文 、 E列・H列・K列・N列：選択肢1〜4 として自動的に読み取られます。<br>
-                <strong>注意：インポートすると現在画面で編集中の問題は上書きされます。</strong>
+                <strong>方法1: コピー＆ペースト</strong><br>
+                過去の「Baboot!」のスプレッドシート（A列〜P列など）をコピーして下の枠に貼り付けてください。<br>
+                <strong>方法2: URLから直接インポート（推奨）</strong><br>
+                旧スプレッドシートを開き、「ファイル」＞「共有」＞「ウェブに公開」から「<strong>CSV形式</strong>」を選んで公開し、発行されたURLを入力してください。<br>
+                <br>
+                ※ インポートすると現在画面で編集中の問題は上書きされます。
             </p>
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: bold; color: var(--k-blue); display:block; margin-bottom:5px;">🌐
+                    ウェブに公開されたCSVのURL (方法2)</label>
+                <input type="text" id="import-url-input"
+                    placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
+                    style="width: 100%; box-sizing: border-box;">
+            </div>
+
+            <label style="font-weight: bold; color: var(--k-purple);">📝 直接貼り付け (方法1)</label>
             <textarea id="import-textarea" placeholder="ここにスプレッドシートの行を貼り付け..."></textarea>
+
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                 <button class="btn-main" style="background: #ccc; box-shadow: 0 4px 0 #999; color: #333;"
                     onclick="closeImportModal()">キャンセル</button>
@@ -1017,6 +1030,7 @@
                 return alert("インポートする前に、まず該当する「教科・学年・回」を選んで「読込」ボタンを押してください。");
             }
             document.getElementById('import-textarea').value = '';
+            document.getElementById('import-url-input').value = '';
             document.getElementById('import-modal').classList.remove('hidden');
         }
 
@@ -1024,34 +1038,83 @@
             document.getElementById('import-modal').classList.add('hidden');
         }
 
-        function processImportData() {
+        // CSVの簡易パーサー (カンマ区切り、ダブルクォート対応)
+        function parseCSVToArray(text) {
+            const result = [];
+            let row = [];
+            let inQuotes = false;
+            let val = '';
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                let nextChar = text[i + 1];
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        val += '"'; i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    row.push(val); val = '';
+                } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                    if (char === '\r' && nextChar === '\n') { i++; }
+                    row.push(val); result.push(row); row = []; val = '';
+                } else {
+                    val += char;
+                }
+            }
+            if (val !== '' || row.length > 0) { row.push(val); result.push(row); }
+            return result;
+        }
+
+        async function processImportData() {
             const rawData = document.getElementById('import-textarea').value;
-            if (!rawData.trim()) {
-                alert("データが入力されていません。");
+            const urlInput = document.getElementById('import-url-input').value.trim();
+
+            let rows = [];
+
+            if (urlInput) {
+                // URLから取得する場合
+                try {
+                    showStatus("データを取得中...", "loading");
+                    const res = await fetch(urlInput);
+                    if (!res.ok) throw new Error("ネットワークエラー");
+                    const csvText = await res.text();
+                    rows = parseCSVToArray(csvText);
+                    showStatus("", "success");
+                } catch (e) {
+                    alert("URLからの取得に失敗しました。URLが間違っているか、ウェブに公開(CSV形式)されていない可能性があります。");
+                    showStatus("", "success");
+                    return;
+                }
+            } else if (rawData.trim()) {
+                // コピー＆ペーストの場合 (タブ区切り)
+                const textRows = rawData.split('\n');
+                rows = textRows.map(r => r.split('\t'));
+            } else {
+                alert("URLかデータのどちらかを入力してください。");
                 return;
             }
 
-            const rows = rawData.split('\n');
             const importedQuestions = [];
 
             for (let i = 0; i < rows.length; i++) {
-                const cols = rows[i].split('\t'); // TSVとしてパース
-                if (cols.length < 2) continue; // 行が短すぎる場合はスキップ
+                const cols = rows[i];
+                if (cols.length < 2) continue;
 
-                const correctData = cols[0] ? cols[0].trim() : "1";
-                const questionText = cols[1] ? cols[1].trim() : "";
-                if (!questionText) continue; // 問題文がない行はスキップ（ヘッダー等の可能性あり）
+                // スプレッドシートの公開CSVの場合、最初の行はヘッダーかもしれないのでスキップするロジック
+                if (i === 0 && cols[0] === '正解番号') continue;
 
-                // A列(cols[0]): 正解番号 -> 1〜4 を 0〜3 のインデックスに変換
+                const correctData = cols[0] ? String(cols[0]).trim() : "1";
+                const questionText = cols[1] ? String(cols[1]).trim() : "";
+                if (!questionText) continue;
+
                 let correctIdx = parseInt(correctData) - 1;
                 if (isNaN(correctIdx) || correctIdx < 0 || correctIdx > 3) correctIdx = 0;
 
-                // 旧スプレッドシートの列構成
-                // E列(4): 選択肢1, H列(7): 選択肢2, K列(10): 選択肢3, N列(13): 選択肢4
-                const op1 = cols.length > 4 ? cols[4].trim() : "";
-                const op2 = cols.length > 7 ? cols[7].trim() : "";
-                const op3 = cols.length > 10 ? cols[10].trim() : "";
-                const op4 = cols.length > 13 ? cols[13].trim() : "";
+                const op1 = cols.length > 4 ? String(cols[4]).trim() : "";
+                const op2 = cols.length > 7 ? String(cols[7]).trim() : "";
+                const op3 = cols.length > 10 ? String(cols[10]).trim() : "";
+                const op4 = cols.length > 13 ? String(cols[13]).trim() : "";
 
                 importedQuestions.push({
                     text: questionText,
@@ -1062,7 +1125,7 @@
             }
 
             if (importedQuestions.length === 0) {
-                alert("有効な問題行が見つかりませんでした。コピーする範囲が間違っていないか確認してください。");
+                alert("有効な問題行が見つかりませんでした。データを確認してください。");
                 return;
             }
 
