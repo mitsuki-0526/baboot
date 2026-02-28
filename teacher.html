@@ -1201,18 +1201,28 @@
                 if (cols.length < 2) continue; // 少なくとも問題と正解が必要
 
                 const questionText = cols[0].trim();
-                const op1 = cols[1] ? cols[1].trim() : "";
-                const op2 = cols[2] ? cols[2].trim() : "";
-                const op3 = cols[3] ? cols[3].trim() : "";
-                const op4 = cols[4] ? cols[4].trim() : "";
+                let options = [
+                    cols[1] ? cols[1].trim() : "",
+                    cols[2] ? cols[2].trim() : "",
+                    cols[3] ? cols[3].trim() : "",
+                    cols[4] ? cols[4].trim() : ""
+                ];
 
-                if (!questionText) continue;
+                if (!questionText || !options[0]) continue;
+
+                const correctValue = options[0]; // AI形式では常に1つ目が正解という前提
+
+                // シャッフルして正解の位置をバラバラにする
+                for (let j = options.length - 1; j > 0; j--) {
+                    const k = Math.floor(Math.random() * (j + 1));
+                    [options[j], options[k]] = [options[k], options[j]];
+                }
 
                 importedQuestions.push({
                     text: questionText,
                     time: 15,
-                    options: [op1, op2, op3, op4],
-                    correctIndex: 0 // AI形式では常に1つ目が正解というルールにする
+                    options: options,
+                    correctIndex: options.indexOf(correctValue)
                 });
             }
 
