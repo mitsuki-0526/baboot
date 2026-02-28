@@ -321,11 +321,12 @@
 
         .gas-settings {
             background: #fff;
-            padding: 15px;
+            padding: 10px 15px;
             border-radius: 8px;
             margin: 10px auto;
             text-align: center;
             border: 2px dashed #ccc;
+            max-width: 1000px;
         }
 
         .gas-settings input {
@@ -579,11 +580,22 @@
         <div>🚀 通信中...</div>
     </div>
 
-    <div class="gas-settings">
-        <label style="font-weight:bold; color:var(--k-purple);">🌐 オンライン共有データベース (Apps Script URL)</label>
-        <input type="text" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
-        <button class="btn-main" style="padding: 5px 10px; font-size: 1em;" onclick="saveGASUrlAndLoad()">設定保存</button>
-    </div>
+    <details class="gas-settings">
+        <summary style="cursor:pointer; font-weight:bold; color:var(--k-purple); outline:none;">
+            ⚙️ 詳細設定 (データベース連携等)
+        </summary>
+        <div style="margin-top:15px;">
+            <label style="font-weight:bold; color:var(--k-purple); display:block; margin-bottom:10px;">🌐 オンライン共有データベース
+                (Apps Script URL)</label>
+            <input type="password" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec"
+                style="width:60%;">
+            <button class="btn-main" style="padding: 5px 10px; font-size: 1em;"
+                onclick="saveGASUrlAndLoad()">設定保存</button>
+            <button class="btn-main"
+                style="padding: 5px 10px; font-size: 0.9em; background:#666; box-shadow:0 4px 0 #444;"
+                onclick="toggleGasUrlVisibility()">表示</button>
+        </div>
+    </details>
 
     <div id="view-editor" class="container" style="padding: 10px;">
         <div class="header">
@@ -876,6 +888,18 @@
             else {
                 alert("オンラインデータベースを解除し、ローカルモードに切り替えます。");
                 savedQuizzes = JSON.parse(localStorage.getItem('baboot_quizzes_local') || '[]');
+            }
+        }
+
+        function toggleGasUrlVisibility() {
+            const inp = document.getElementById('gas-url-input');
+            const btn = event.target;
+            if (inp.type === "password") {
+                inp.type = "text";
+                btn.innerText = "隠す";
+            } else {
+                inp.type = "password";
+                btn.innerText = "表示";
             }
         }
 
