@@ -1243,7 +1243,7 @@
         }
 
 
-                const firebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyAXW4G_byHgZlTEiJ55y8ZZNX-_rwd_1cc",
             authDomain: "baboot-a4643.firebaseapp.com",
             databaseURL: "https://baboot-a4643-default-rtdb.firebaseio.com",
@@ -1257,7 +1257,7 @@
         }
         const db = firebase.database();
 
-// ==========================================
+        // ==========================================
         // 3. ゲームホスト・進行処理 (Firebase 6桁PIN化)
         // ==========================================
         const players = {};
@@ -1307,10 +1307,10 @@
             document.getElementById('display-pin').innerText = "通信開始中...";
             document.getElementById('display-pin').style.fontSize = "2em";
             document.getElementById('display-pin').style.color = "orange";
-            
+
             // Set up Firebase Room
             roomRef = db.ref('rooms/' + currentRoomId);
-            
+
             // Previous listeners cleanup
             db.ref('rooms').off();
 
@@ -1321,7 +1321,7 @@
                 document.getElementById('display-pin').style.color = "var(--k-purple)";
                 document.getElementById('display-pin').style.fontSize = "5em";
                 document.getElementById('display-pin').innerText = shortPin;
-                
+
                 // Clear the room on disconnect as cleanup
                 roomRef.onDisconnect().remove();
 
@@ -1331,8 +1331,8 @@
                     const data = snap.val();
                     if (!players[studentId]) {
                         players[studentId] = { studentId: studentId, name: data.name, score: 0, streak: 0, hasAnsweredThisRound: false };
-                        const tag = document.createElement('div'); 
-                        tag.className = 'player-tag'; 
+                        const tag = document.createElement('div');
+                        tag.className = 'player-tag';
                         tag.innerText = data.name;
                         tag.id = "ptag-" + studentId;
                         document.getElementById('player-grid').appendChild(tag);
@@ -1340,15 +1340,15 @@
                         document.getElementById('btn-start').disabled = false;
                     }
                 });
-                
+
                 roomRef.child('students').on('child_removed', (snap) => {
                     const studentId = snap.key;
                     if (players[studentId]) {
                         delete players[studentId];
                         const tag = document.getElementById("ptag-" + studentId);
-                        if(tag) tag.remove();
+                        if (tag) tag.remove();
                         document.getElementById('player-count').innerText = Object.keys(players).length;
-                        if(Object.keys(players).length === 0) document.getElementById('btn-start').disabled = true;
+                        if (Object.keys(players).length === 0) document.getElementById('btn-start').disabled = true;
                     }
                 });
 
@@ -1361,8 +1361,8 @@
                     p.hasAnsweredThisRound = true;
 
                     const currentQ = activeQuiz.questions[currentQIndex];
-                    if(!currentQ) return;
-                    
+                    if (!currentQ) return;
+
                     const isCorrect = (data.choice === currentQ.correctIndex);
                     let points = 0; let bonus = 0;
 
@@ -1388,7 +1388,7 @@
             });
             document.getElementById('view-editor').classList.remove('hidden');
             clearInterval(timerInterval);
-            
+
             if (roomRef) {
                 broadcast({ type: "END" });
                 // Room cleanup
@@ -1420,7 +1420,7 @@
             document.getElementById('view-interim').classList.add('hidden');
             document.getElementById('view-question').classList.remove('hidden');
             document.getElementById('q-num').innerText = currentQIndex + 1;
-            
+
             let qTextHtml = `<div>${q.text}</div>`;
             if (q.text_en || q.text_zh) {
                 qTextHtml += `<div style="font-size:0.6em; margin-top:10px; font-weight:normal; color:#555;">`;
@@ -1440,6 +1440,14 @@
                     if (q.options_zh && q.options_zh[i]) optHtml += `<div>🇨🇳 ${q.options_zh[i]}</div>`;
                     optHtml += `</div>`;
                 }
+
+                if (!opt || opt.trim() === "") {
+                    return `<div class="option-card ${colors[i]}" style="visibility:hidden; display:flex; align-items:center; text-align:left;">
+                        <span class="shape-icon">${shapes[i]}</span>
+                        <div style="flex:1;"></div>
+                    </div>`;
+                }
+
                 return `<div class="option-card ${colors[i]}" style="display:flex; align-items:center; text-align:left;">
                     <span class="shape-icon">${shapes[i]}</span>
                     <div style="flex:1;">${optHtml}</div>
@@ -1448,16 +1456,16 @@
 
             document.getElementById('q-timer').innerText = q.time;
             document.getElementById('pre-read-overlay').classList.remove('hidden');
-            document.getElementById('options-area').classList.add('hidden'); 
+            document.getElementById('options-area').classList.add('hidden');
 
             let preTime = 7;
             document.getElementById('pre-timer').innerText = preTime;
 
             Object.values(players).forEach(p => p.hasAnsweredThisRound = false);
-            
+
             // Clear previous answers
-            if(roomRef) roomRef.child('answers').remove();
-            if(roomRef) roomRef.child('results').remove();
+            if (roomRef) roomRef.child('answers').remove();
+            if (roomRef) roomRef.child('results').remove();
 
             broadcast({
                 type: "PRE_QUESTION",
@@ -1480,7 +1488,7 @@
                 if (preTime <= 0) {
                     clearInterval(timerInterval);
                     document.getElementById('pre-read-overlay').classList.add('hidden');
-                    document.getElementById('options-area').classList.remove('hidden'); 
+                    document.getElementById('options-area').classList.remove('hidden');
 
                     broadcast({ type: "QUESTION_START" });
 
@@ -1506,7 +1514,7 @@
             document.getElementById('view-reveal').classList.remove('hidden');
 
             const q = activeQuiz.questions[currentQIndex];
-            const correctIndex = parseInt(q.correctIndex); 
+            const correctIndex = parseInt(q.correctIndex);
             const colors = ['bg-red', 'bg-blue', 'bg-yellow', 'bg-green'];
             const shapes = ['▲', '◆', '●', '■'];
 
@@ -1524,7 +1532,7 @@
                     resultsData[p.studentId] = { type: "RESULT", isCorrect: p.lastResult.isCorrect, points: p.lastResult.points, bonus: p.lastResult.bonus };
                 }
             });
-            if(roomRef) roomRef.child('results').set(resultsData);
+            if (roomRef) roomRef.child('results').set(resultsData);
         }
 
         function showInterimRanking() {
