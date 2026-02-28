@@ -617,6 +617,9 @@
             <div class="config-row">
                 <input type="text" id="round-name" placeholder="タイトル (例: 音楽史クイズ)" style="width:300px;">
                 <button class="btn-danger-round" onclick="deleteRound()">削除</button>
+                <button class="btn-main"
+                    style="background:#ff4d4f; padding: 5px 10px; font-size: 0.85em; box-shadow: 0 4px 0 #cf1322; margin-left: 20px;"
+                    onclick="forceResetAllConnections()">🚨 全接続を強制切断</button>
             </div>
             <div class="config-row">
                 <button class="btn-main btn-success" style="padding: 5px 15px; font-size: 0.9em;"
@@ -1367,6 +1370,15 @@
         let remainingTime = 0;
         let currentRoomId = null;
         let roomRef = null;
+
+        function forceResetAllConnections() {
+            if (confirm("【警告】現在接続中の全ての端末を強制的に切断し、全データを初期化しますか？\n(他クラスで使用中の場合、そのゲームも中断されます)")) {
+                db.ref('system/force_reset').set(Date.now()).then(() => {
+                    db.ref('rooms').remove();
+                    alert("リセット信号を送信しました。全ての端末が数秒以内に切断されます。");
+                });
+            }
+        }
 
         function kickPlayer(sid) {
             if (!roomRef) return;

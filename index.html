@@ -429,6 +429,17 @@
         let currentLang = "ja";
         let roomRef = null;
 
+        // 【追加】管理者による全端末強制切断の監視
+        db.ref('system/force_reset').on('value', (snap) => {
+            if (snap.exists()) {
+                // ページロードから5秒以上経過している場合のみ実行（ロード時の初期発火を避ける）
+                if (performance.now() > 5000) {
+                    firebase.database().goOffline();
+                    location.reload();
+                }
+            }
+        });
+
         const UI_TEXTS = {
             ja: { placeholderName: "Nickname", joinBtn: "参加する", waitMsg: "画面(先生のPC)を見て\nスタートを待ってね！", rankTitle: "ランキング" },
             en: { placeholderName: "Nickname", joinBtn: "Join", waitMsg: "Look at the screen\nand wait for start!", rankTitle: "Leaderboard" },
