@@ -105,7 +105,9 @@
             color: white;
             padding: 15px 20px;
             display: flex;
-            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: flex-start;
             align-items: center;
         }
 
@@ -589,11 +591,11 @@
                     style="background:#0b458e; padding: 8px 15px; font-size:0.9em; box-shadow:none; margin-left:10px;"
                     onclick="exportLocalQuiz()">書出</button>
             </div>
-            <div class="config-row" style="margin-top:10px;">
+            <div class="config-row">
                 <input type="text" id="round-name" placeholder="タイトル (例: 音楽史クイズ)" style="width:300px;">
                 <button class="btn-danger-round" onclick="deleteRound()">削除</button>
             </div>
-            <div class="config-row" style="margin-top:10px;">
+            <div class="config-row">
                 <button class="btn-main btn-success" style="padding: 5px 15px; font-size: 0.9em;"
                     onclick="openImportModal()">⬇️ 旧スプレッドシートからインポート</button>
             </div>
