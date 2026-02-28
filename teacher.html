@@ -814,13 +814,6 @@
 
         function saveGASUrlAndLoad() {
             const inputUrl = document.getElementById('gas-url-input').value.trim();
-            if (inputUrl !== gasUrl || inputUrl === "") {
-                const pass = prompt("URLの設定を変更するにはパスワードを入力してください。\n(デフォルトは baboot です)");
-                if (pass !== "baboot") {
-                    alert("パスワードが違います。");
-                    return;
-                }
-            }
 
             gasUrl = inputUrl;
             localStorage.setItem('baboot_gas_url', gasUrl);
