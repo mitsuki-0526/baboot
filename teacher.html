@@ -1243,7 +1243,21 @@
         }
 
 
-        // ==========================================
+                const firebaseConfig = {
+            apiKey: "AIzaSyAXW4G_byHgZlTEiJ55y8ZZNX-_rwd_1cc",
+            authDomain: "baboot-a4643.firebaseapp.com",
+            databaseURL: "https://baboot-a4643-default-rtdb.firebaseio.com",
+            projectId: "baboot-a4643",
+            storageBucket: "baboot-a4643.firebasestorage.app",
+            messagingSenderId: "73453597989",
+            appId: "1:73453597989:web:15403777b63a19149856cc"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+// ==========================================
         // 3. ゲームホスト・進行処理 (Firebase 6桁PIN化)
         // ==========================================
         const players = {};

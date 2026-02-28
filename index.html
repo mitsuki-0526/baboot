@@ -409,54 +409,30 @@
     </div>
 
     <script>
-        const peerConfig = {
-            debug: 2,
-            host: 'baboot-server.onrender.com',
-            port: 443,
-            secure: true,
-            path: '/',
-            config: {
-                'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    {
-                        urls: "turn:openrelay.metered.ca:80",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    },
-                    {
-                        urls: "turn:openrelay.metered.ca:443",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    },
-                    {
-                        urls: "turn:openrelay.metered.ca:443?transport=tcp",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    }
-                ]
-            }
+        const firebaseConfig = {
+            apiKey: "AIzaSyAXW4G_byHgZlTEiJ55y8ZZNX-_rwd_1cc",
+            authDomain: "baboot-a4643.firebaseapp.com",
+            databaseURL: "https://baboot-a4643-default-rtdb.firebaseio.com",
+            projectId: "baboot-a4643",
+            storageBucket: "baboot-a4643.firebasestorage.app",
+            messagingSenderId: "73453597989",
+            appId: "1:73453597989:web:15403777b63a19149856cc"
         };
-        const peer = new Peer(peerConfig);
-
-        // 自動再接続処理
-        peer.on('disconnected', () => {
-            console.warn("Peer disconnected. Retrying...");
-            setTimeout(() => {
-                if (!peer.destroyed) {
-                    peer.reconnect();
-                }
-            }, 3000);
-        });
-
-        let conn = null;
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        let roomId = null;
         let myName = "";
         let myScore = 0;
+        let studentId = "student-" + Math.floor(Math.random() * 10000000);
         let currentLang = "ja";
+        let roomRef = null;
 
         const UI_TEXTS = {
-            ja: { placeholderName: "Nickname", joinBtn: "参加する", waitMsg: "画面(先生のPC)を見て\\nスタートを待ってね！", rankTitle: "ランキング" },
-            en: { placeholderName: "Nickname", joinBtn: "Join", waitMsg: "Look at the screen\\nand wait for start!", rankTitle: "Leaderboard" },
-            zh: { placeholderName: "昵称", joinBtn: "加入", waitMsg: "请看屏幕\\n等待游戏开始！", rankTitle: "排行榜" }
+            ja: { placeholderName: "Nickname", joinBtn: "参加する", waitMsg: "画面(先生のPC)を見て\nスタートを待ってね！", rankTitle: "ランキング" },
+            en: { placeholderName: "Nickname", joinBtn: "Join", waitMsg: "Look at the screen\nand wait for start!", rankTitle: "Leaderboard" },
+            zh: { placeholderName: "昵称", joinBtn: "加入", waitMsg: "请看屏幕\n等待游戏开始！", rankTitle: "排行榜" }
         };
 
         function changeLanguage() {
@@ -464,7 +440,7 @@
             const t = UI_TEXTS[currentLang];
             document.getElementById('student-name').placeholder = t.placeholderName;
             document.getElementById('btn-join').innerText = t.joinBtn;
-            document.getElementById('display-wait-msg').innerHTML = t.waitMsg.replace("\\n", "<br>");
+            document.getElementById('display-wait-msg').innerHTML = t.waitMsg.replace("\n", "<br>");
             document.getElementById('ui-ranking-title').innerText = t.rankTitle;
         }
 
@@ -472,10 +448,8 @@
         let currentStreak = 0;
         let timerTimeout;
 
-        // ----- 通信処理 -----
-
         function joinRoom() {
-            let roomId = document.getElementById('room-id').value.trim();
+            roomId = document.getElementById('room-id').value.trim();
             myName = document.getElementById('student-name').value.trim();
 
             if (!roomId || !myName) {
@@ -483,7 +457,6 @@
                 return;
             }
 
-            // 6桁の数字のみ入力された場合は内部でプレフィックスを付ける
             if (/^\d{6}$/.test(roomId)) {
                 roomId = 'baboot-' + roomId;
             }
@@ -492,131 +465,104 @@
             btn.disabled = true;
             btn.innerText = "接続中...";
 
-            conn = peer.connect(roomId);
+            roomRef = db.ref('rooms/' + roomId);
+            roomRef.child('state').once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    document.getElementById('join-msg').innerText = "部屋が見つかりません。PINを確認して！";
+                    btn.disabled = false;
+                    btn.innerText = "参加する";
+                    return;
+                }
+                
+                roomRef.child('students/' + studentId).set({ name: myName, timestamp: firebase.database.ServerValue.TIMESTAMP });
+                roomRef.child('students/' + studentId).onDisconnect().remove();
 
-            conn.on('open', () => {
-                // 先生に自分の名前を送る
-                conn.send(JSON.stringify({ type: "JOIN", name: myName }));
-
-                // 画面を待機に切り替え
                 document.getElementById('view-join').classList.add('hidden');
                 document.getElementById('view-waiting').classList.remove('hidden');
                 document.getElementById('display-name').innerText = myName;
-            });
 
-            // 先生からのメッセージを受信
-            conn.on('data', (dataStr) => {
-                try {
-                    const data = JSON.parse(dataStr);
-
-                    if (data.type === "PRE_QUESTION") {
-                        // 7秒の事前表示開始
-                        prepareQuestion(data);
+                roomRef.child('broadcast').on('value', (snap) => {
+                    const data = snap.val();
+                    if(!data) return;
+                    handleBroadcast(data);
+                });
+                
+                roomRef.child('results/' + studentId).on('value', (snap) => {
+                    const data = snap.val();
+                    if(!data) return;
+                    if (data.type === "RESULT") {
+                         showFeedback(data.isCorrect, data.points, data.bonus);
                     }
-                    else if (data.type === "QUESTION_START") {
-                        // 本格的に解答スタート！
-                        startQuestionCountdown(currentQTime);
-                    }
-                    else if (data.type === "RESULT") {
-                        // 正誤判定の結果を受信
-                        showFeedback(data.isCorrect, data.points, data.bonus);
-                    }
-                    else if (data.type === "RANKING") {
-                        // ランキングを受信
-                        document.getElementById('feedback-overlay').classList.add('hidden');
-                        document.getElementById('view-game').classList.add('hidden');
-                        document.getElementById('view-waiting').classList.add('hidden');
-                        document.getElementById('view-ranking').classList.remove('hidden');
+                });
 
-                        let tableHtml = '<tr><th style="border-bottom:2px solid #ccc; padding:5px;">Rank</th><th style="border-bottom:2px solid #ccc; padding:5px;">Name</th><th style="border-bottom:2px solid #ccc; padding:5px;">Score</th></tr>';
-                        data.top5.forEach((p, index) => {
-                            let isMe = (p.name === myName);
-                            let style = isMe ? 'background-color:#ffffcc; font-weight:bold;' : '';
-                            style += ` --i: ${index};`; // アニメーションの遅延用変数
-                            let icon = '';
-                            if (index === 0) icon = '🥇 ';
-                            else if (index === 1) icon = '🥈 ';
-                            else if (index === 2) icon = '🥉 ';
-                            tableHtml += `<tr class="ranking-row" style="${style}"><td style="padding:8px 5px; text-align:center;">${icon}${index + 1}</td><td style="padding:8px 5px;">${p.name}</td><td style="padding:8px 5px; text-align:right;">${p.score}</td></tr>`;
-                        });
-                        document.getElementById('student-ranking-table').innerHTML = tableHtml;
-                    }
-                    else if (data.type === "FINAL_RANKING") {
-                        document.getElementById('feedback-overlay').classList.add('hidden');
-                        document.getElementById('view-game').classList.add('hidden');
-                        document.getElementById('view-waiting').classList.add('hidden');
-                        document.getElementById('view-ranking').classList.add('hidden');
-                        document.getElementById('view-final').classList.remove('hidden');
-
-                        const results = data.results;
-                        const top3 = results.slice(0, 3);
-
-                        let podiumHtml = '';
-                        if (top3[1]) {
-                            podiumHtml += `<div class="podium-item place-2"><div class="podium-name">${top3[1].name}</div><div class="podium-bar" style="height:120px;"><div class="podium-score">${top3[1].score}</div></div></div>`;
-                        }
-                        if (top3[0]) {
-                            podiumHtml += `<div class="podium-item place-1"><div class="podium-name">${top3[0].name}</div><div class="podium-bar" style="height:160px;"><div class="podium-score">${top3[0].score}</div></div></div>`;
-                        }
-                        if (top3[2]) {
-                            podiumHtml += `<div class="podium-item place-3"><div class="podium-name">${top3[2].name}</div><div class="podium-bar" style="height:80px;"><div class="podium-score">${top3[2].score}</div></div></div>`;
-                        }
-                        document.getElementById('student-podium').innerHTML = podiumHtml;
-
-                        const myResult = results.find(p => p.name === myName);
-                        if (myResult) {
-                            if (currentLang === 'ja') document.getElementById('final-my-rank').innerText = `あなたの順位: ${myResult.rank}位`;
-                            else if (currentLang === 'zh') document.getElementById('final-my-rank').innerText = `你的排名: 第${myResult.rank}名`;
-                            else document.getElementById('final-my-rank').innerText = `Your Rank: ${myResult.rank}`;
-                            document.getElementById('final-my-score').innerText = `${myResult.score} pts`;
-                        }
-                    }
-                    else if (data.type === "END" || data.type === "NEXT") {
-                        if (data.type === "END") {
-                            showOverlay("fb-wait", "🏆", "ゲーム終了！\n画面を見てね", "");
-                        } else { // NEXT 
-                            // 次の問題のために待機画面へ、オーバーレイを消す
-                            document.getElementById('feedback-overlay').classList.add('hidden');
-                            document.getElementById('view-game').classList.add('hidden');
-                            document.getElementById('view-ranking').classList.add('hidden');
-                            document.getElementById('view-waiting').classList.remove('hidden');
-                        }
-                    }
-                } catch (e) {
-                    console.error("Data error", e);
-                }
-            });
-
-            conn.on('error', (err) => {
-                document.getElementById('join-msg').innerText = "エラー: " + err.message;
+            }).catch(e => {
+                document.getElementById('join-msg').innerText = "エラー: " + e.message;
                 btn.disabled = false;
                 btn.innerText = "参加する";
             });
-
-            conn.on('close', () => {
-                // 先生側からの意図的な切断でなければ再接続を試みる
-                if (document.getElementById('view-waiting').classList.contains('hidden') === false ||
-                    document.getElementById('view-game').classList.contains('hidden') === false) {
-                    document.getElementById('join-msg').innerText = "通信が切れました...再接続中";
-                    document.getElementById('join-msg').style.color = "orange";
-
-                    setTimeout(() => {
-                        // 画面状態をリセットして入り直す
-                        document.getElementById('view-waiting').classList.add('hidden');
-                        document.getElementById('view-game').classList.add('hidden');
-                        document.getElementById('view-ranking').classList.add('hidden');
-                        document.getElementById('view-join').classList.remove('hidden');
-
-                        btn.disabled = false;
-                        btn.innerText = "再接続する";
-                        // 自動で押し直す
-                        joinRoom();
-                    }, 3000);
-                }
-            });
         }
 
-        // ----- 画面・ゲーム処理 -----
+        function handleBroadcast(data) {
+            try {
+                if (data.type === "PRE_QUESTION") {
+                    prepareQuestion(data);
+                } else if (data.type === "QUESTION_START") {
+                    startQuestionCountdown(currentQTime);
+                } else if (data.type === "RANKING") {
+                    document.getElementById('feedback-overlay').classList.add('hidden');
+                    document.getElementById('view-game').classList.add('hidden');
+                    document.getElementById('view-waiting').classList.add('hidden');
+                    document.getElementById('view-ranking').classList.remove('hidden');
+
+                    let tableHtml = '<tr><th style="border-bottom:2px solid #ccc; padding:5px;">Rank</th><th style="border-bottom:2px solid #ccc; padding:5px;">Name</th><th style="border-bottom:2px solid #ccc; padding:5px;">Score</th></tr>';
+                    (data.top5 || []).forEach((p, index) => {
+                        let isMe = (p.name === myName);
+                        let style = isMe ? 'background-color:#ffffcc; font-weight:bold;' : '';
+                        style += ` --i: ${index};`; 
+                        let icon = '';
+                        if (index === 0) icon = '🥇 ';
+                        else if (index === 1) icon = '🥈 ';
+                        else if (index === 2) icon = '🥉 ';
+                        tableHtml += `<tr class="ranking-row" style="${style}"><td style="padding:8px 5px; text-align:center;">${icon}${index + 1}</td><td style="padding:8px 5px;">${p.name}</td><td style="padding:8px 5px; text-align:right;">${p.score}</td></tr>`;
+                    });
+                    document.getElementById('student-ranking-table').innerHTML = tableHtml;
+                } else if (data.type === "FINAL_RANKING") {
+                    document.getElementById('feedback-overlay').classList.add('hidden');
+                    document.getElementById('view-game').classList.add('hidden');
+                    document.getElementById('view-waiting').classList.add('hidden');
+                    document.getElementById('view-ranking').classList.add('hidden');
+                    document.getElementById('view-final').classList.remove('hidden');
+
+                    const results = data.results || [];
+                    const top3 = results.slice(0, 3);
+                    let podiumHtml = '';
+                    if (top3[1]) podiumHtml += `<div class="podium-item place-2"><div class="podium-name">${top3[1].name}</div><div class="podium-bar" style="height:120px;"><div class="podium-score">${top3[1].score}</div></div></div>`;
+                    if (top3[0]) podiumHtml += `<div class="podium-item place-1"><div class="podium-name">${top3[0].name}</div><div class="podium-bar" style="height:160px;"><div class="podium-score">${top3[0].score}</div></div></div>`;
+                    if (top3[2]) podiumHtml += `<div class="podium-item place-3"><div class="podium-name">${top3[2].name}</div><div class="podium-bar" style="height:80px;"><div class="podium-score">${top3[2].score}</div></div></div>`;
+                    
+                    document.getElementById('student-podium').innerHTML = podiumHtml;
+
+                    const myResult = results.find(p => p.name === myName);
+                    if (myResult) {
+                        if (currentLang === 'ja') document.getElementById('final-my-rank').innerText = `あなたの順位: ${myResult.rank}位`;
+                        else if (currentLang === 'zh') document.getElementById('final-my-rank').innerText = `你的排名: 第${myResult.rank}名`;
+                        else document.getElementById('final-my-rank').innerText = `Your Rank: ${myResult.rank}`;
+                        document.getElementById('final-my-score').innerText = `${myResult.score} pts`;
+                    }
+                } else if (data.type === "END" || data.type === "NEXT") {
+                    if (data.type === "END") {
+                        showOverlay("fb-wait", "🏆", "ゲーム終了！\n画面を見てね", "");
+                    } else { 
+                        document.getElementById('feedback-overlay').classList.add('hidden');
+                        document.getElementById('view-game').classList.add('hidden');
+                        document.getElementById('view-ranking').classList.add('hidden');
+                        document.getElementById('view-waiting').classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error("Broadcast handled error", e);
+            }
+        }
 
         let currentQTime = 0;
 
@@ -625,10 +571,8 @@
             document.getElementById('view-waiting').classList.add('hidden');
             document.getElementById('view-ranking').classList.add('hidden');
             document.getElementById('view-game').classList.remove('hidden');
-
             document.getElementById('q-counter').innerText = data.qNum;
 
-            // テキストのローカライズ反映
             let dispQText = data.qText;
             if (currentLang === 'en' && data.qText_en) dispQText = data.qText_en;
             if (currentLang === 'zh' && data.qText_zh) dispQText = data.qText_zh;
@@ -642,15 +586,13 @@
                 optSpans[i].innerText = dispOpt;
             }
 
-            // ボタンを押せないようにする (グレーアウト) & 選択肢自体を隠す
             document.getElementById('options-area').classList.add('locked');
-            document.getElementById('options-area').classList.add('hidden'); // ← 読解中は選択肢を隠す
+            document.getElementById('options-area').classList.add('hidden'); 
 
-            // プログレスバーをリセットして、読む時間(7秒)のバーを動かす
             const bar = document.getElementById('timer-bar');
             bar.style.transition = "none";
             bar.style.width = '100%';
-            bar.style.background = '#ffc107'; // 黄色
+            bar.style.background = '#ffc107'; 
             void bar.offsetWidth;
 
             setTimeout(() => {
@@ -658,74 +600,67 @@
                 bar.style.width = '0%';
             }, 50);
 
-            // 問題文を大きく中央に表示
             const qText = document.getElementById('s-q-text');
             qText.style.fontSize = "3em";
             qText.style.textAlign = "center";
             qText.style.marginTop = "15vh";
             qText.style.lineHeight = "1.3";
 
-            // 全画面オーバーレイを隠し、事前表示用バナーを出す
             document.getElementById('feedback-overlay').classList.add('hidden');
             document.getElementById('s-pre-read-overlay').classList.remove('hidden');
         }
 
         function startQuestionCountdown(timeSec) {
-            // オーバーレイやバナーを隠す
             document.getElementById('feedback-overlay').classList.add('hidden');
             document.getElementById('s-pre-read-overlay').classList.add('hidden');
 
-            // 問題文のスタイルを元に戻す
             const qText = document.getElementById('s-q-text');
             qText.style.fontSize = "1.5em";
             qText.style.textAlign = "left";
             qText.style.marginTop = "0";
             qText.style.lineHeight = "normal";
 
-            // 選択肢を表示して、ボタンを押せるようにする
-            document.getElementById('options-area').classList.remove('hidden'); // ← 選択肢を表示！
+            document.getElementById('options-area').classList.remove('hidden'); 
             document.getElementById('options-area').classList.remove('locked');
 
-            // タイマーアニメーション開始
             questionStartTime = Date.now();
             const bar = document.getElementById('timer-bar');
             bar.style.transition = "none";
             bar.style.width = '100%';
-            bar.style.background = 'var(--k-purple)'; // 元の紫色に戻す
-            void bar.offsetWidth; // 強制リフロー
+            bar.style.background = 'var(--k-purple)'; 
+            void bar.offsetWidth; 
 
             setTimeout(() => {
                 bar.style.transition = `width ${timeSec}s linear`;
                 bar.style.width = '0%';
             }, 50);
 
-            // 時間切れ処理
             clearTimeout(timerTimeout);
             timerTimeout = setTimeout(() => {
                 document.getElementById('options-area').classList.add('locked');
                 showOverlay("fb-wait", "⏰", "Time's Up!", "他の人を待っています...");
                 currentStreak = 0;
-                conn.send(JSON.stringify({ type: "ANSWER", choice: -1, timeTaken: timeSec, myName: myName }));
+                sendAnswerData(-1, timeSec);
             }, timeSec * 1000);
         }
 
         function sendAnswer(choiceIndex) {
-            // 1度押したらロックする
             document.getElementById('options-area').classList.add('locked');
             clearTimeout(timerTimeout);
-
             const timeTaken = (Date.now() - questionStartTime) / 1000;
-
-            // 先生に解答を送信 (正誤は先生側で判定してもらう)
-            conn.send(JSON.stringify({
-                type: "ANSWER",
-                choice: choiceIndex,
-                timeTaken: timeTaken,
-                myName: myName
-            }));
-
-            // 判定結果が返ってくるまで「Wait...」を出す
+            sendAnswerData(choiceIndex, timeTaken);
             showOverlay("fb-wait", "⏳", "Waiting...", "他の人を待っています");
+        }
+        
+        function sendAnswerData(choiceIndex, timeTaken) {
+            if(roomRef) {
+                roomRef.child('answers/' + studentId).set({
+                    choice: choiceIndex,
+                    timeTaken: timeTaken,
+                    myName: myName,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
         }
 
         function showFeedback(isCorrect, points, bonus) {
@@ -744,9 +679,8 @@
 
         function showOverlay(colorClass, icon, text, scoreHtml) {
             const overlay = document.getElementById('feedback-overlay');
-            overlay.className = ''; // 共通クラスをリセット
-            overlay.classList.add(colorClass); // 色付け
-
+            overlay.className = ''; 
+            overlay.classList.add(colorClass); 
             document.getElementById('feedback-icon').innerText = icon;
             document.getElementById('feedback-text').innerText = text;
 
@@ -757,10 +691,10 @@
             } else {
                 scoreEl.style.display = 'none';
             }
-
             overlay.classList.remove('hidden');
         }
     </script>
+
 </body>
 
 </html>
