@@ -1551,7 +1551,6 @@
                 let tableHtml = ''; for (let i = 3; i < sorted.length; i++) tableHtml += `<tr><td>${i + 1}位</td><td>${sorted[i].name}</td><td>${sorted[i].score}</td></tr>`;
                 document.getElementById('final-table').innerHTML = tableHtml;
             }
-            broadcast({ type: "END" });
         }
 
         function downloadCSV() {
