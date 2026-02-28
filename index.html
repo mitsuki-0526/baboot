@@ -477,6 +477,15 @@
                 roomRef.child('students/' + studentId).set({ name: myName, timestamp: firebase.database.ServerValue.TIMESTAMP });
                 roomRef.child('students/' + studentId).onDisconnect().remove();
 
+                // 追放（キック）された時の処理
+                roomRef.child('students/' + studentId).on('value', (snap) => {
+                    if (!snap.exists() && roomRef) {
+                        alert("先生によって接続が切断されました。");
+                        firebase.database().goOffline(); // 接続制限対策：完全に通信を切る
+                        location.reload(); // ページをリロードして初期状態に戻す
+                    }
+                });
+
                 document.getElementById('view-join').classList.add('hidden');
                 document.getElementById('view-waiting').classList.remove('hidden');
                 document.getElementById('display-name').innerText = myName;

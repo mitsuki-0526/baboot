@@ -380,6 +380,29 @@
             font-size: 1.2em;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
             animation: popIn 0.3s ease-out;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .kick-btn {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-left: 10px;
+            display: none;
+            /* ホバー時のみ表示 */
+        }
+
+        .player-tag:hover .kick-btn {
+            display: inline-block;
         }
 
         @keyframes popIn {
@@ -1345,6 +1368,13 @@
         let currentRoomId = null;
         let roomRef = null;
 
+        function kickPlayer(sid) {
+            if (!roomRef) return;
+            if (confirm("この参加者の接続を切断しますか？")) {
+                roomRef.child('students').child(sid).remove();
+            }
+        }
+
         function hostQuiz() {
             if (!currentEditingQuizId) {
                 return alert("出題する前に、まず「読込」ボタンを押してデータを開いてください。");
@@ -1410,7 +1440,7 @@
                         players[studentId] = { studentId: studentId, name: data.name, score: 0, streak: 0, hasAnsweredThisRound: false };
                         const tag = document.createElement('div');
                         tag.className = 'player-tag';
-                        tag.innerText = data.name;
+                        tag.innerHTML = `<span>${data.name}</span><button class="kick-btn" onclick="kickPlayer('${studentId}')" title="接続を切る">×</button>`;
                         tag.id = "ptag-" + studentId;
                         document.getElementById('player-grid').appendChild(tag);
                         document.getElementById('player-count').innerText = Object.keys(players).length;
