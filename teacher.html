@@ -598,6 +598,9 @@
             <div class="config-row">
                 <button class="btn-main btn-success" style="padding: 5px 15px; font-size: 0.9em;"
                     onclick="openImportModal()">⬇️ 旧スプレッドシートからインポート</button>
+                <button class="btn-main"
+                    style="background:#52c41a; padding: 5px 15px; font-size: 0.9em; box-shadow: 0 4px 0 #237804;"
+                    onclick="openAiImportModal()">🤖 AI一括読込 (TSV形式)</button>
             </div>
         </div>
 
@@ -698,6 +701,30 @@
                     onclick="processRoundListImportData()">RoundListの一括インポート</button>
                 <button class="btn-main btn-next" style="margin-top: 0;"
                     onclick="processImportData()">問題データのインポート</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI一括インポートモーダル -->
+    <div id="ai-import-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 style="color: #52c41a; margin-top: 0;">🤖 AI一括読込 (NotebookLM等)</h2>
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 20px;">
+                NotebookLMやChatGPTで作成した「問題リスト」を一括で取り込めます。<br>
+                以下の形式（タブ区切り）で貼り付けてください：<br>
+                <code>問題文 [TAB] 正解 [TAB] 誤答1 [TAB] 誤答2 [TAB] 誤答3</code><br>
+                <br>
+                <span style="color:#d43f3a; font-weight:bold;">※ 取り込むと現在編集中の問題リストは上書きされます。</span>
+            </p>
+
+            <textarea id="ai-import-textarea" placeholder="ここにAIが出力したテキストを貼り付けてください..."
+                style="height: 300px;"></textarea>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn-main" style="background: #ccc; box-shadow: 0 4px 0 #999; color: #333;"
+                    onclick="closeAiImportModal()">キャンセル</button>
+                <button class="btn-main" style="margin-top: 0; background: #52c41a; box-shadow: 0 4px 0 #237804;"
+                    onclick="processAiImportData()">一括インポートを実行</button>
             </div>
         </div>
     </div>
@@ -1140,6 +1167,66 @@
                 selectQuestion(0);
                 closeImportModal();
                 showStatus("インポート成功。保存ボタンを押してください。", "success");
+            }
+        }
+
+        // --- AI一括インポート ---
+        function openAiImportModal() {
+            if (!currentEditingQuizId) {
+                return alert("インポートする前に、まず該当する「教科・学年・回」を選んで「読込」ボタンを押してください。");
+            }
+            document.getElementById('ai-import-textarea').value = '';
+            document.getElementById('ai-import-modal').classList.remove('hidden');
+        }
+
+        function closeAiImportModal() {
+            document.getElementById('ai-import-modal').classList.add('hidden');
+        }
+
+        function processAiImportData() {
+            const rawData = document.getElementById('ai-import-textarea').value;
+            if (!rawData.trim()) {
+                alert("データを入力してください。");
+                return;
+            }
+
+            const rows = rawData.split('\n');
+            const importedQuestions = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const line = rows[i].trim();
+                if (!line) continue;
+
+                const cols = line.split('\t');
+                if (cols.length < 2) continue; // 少なくとも問題と正解が必要
+
+                const questionText = cols[0].trim();
+                const op1 = cols[1] ? cols[1].trim() : "";
+                const op2 = cols[2] ? cols[2].trim() : "";
+                const op3 = cols[3] ? cols[3].trim() : "";
+                const op4 = cols[4] ? cols[4].trim() : "";
+
+                if (!questionText) continue;
+
+                importedQuestions.push({
+                    text: questionText,
+                    time: 15,
+                    options: [op1, op2, op3, op4],
+                    correctIndex: 0 // AI形式では常に1つ目が正解というルールにする
+                });
+            }
+
+            if (importedQuestions.length === 0) {
+                alert("有効な問題が見つかりませんでした。タブ区切り形式（問題 [TAB] 正解 [TAB] 誤答...）になっているか確認してください。");
+                return;
+            }
+
+            if (confirm(`AIから ${importedQuestions.length}問 読み込みました。\n現在の編集データは上書きされます。よろしいですか？`)) {
+                editingQuestions = importedQuestions;
+                renderSidebarList();
+                selectQuestion(0);
+                closeAiImportModal();
+                showStatus("AIからのインポート成功。保存ボタンを押してください。", "success");
             }
         }
 
