@@ -810,8 +810,7 @@
     <!-- 【3-A】正解発表画面 (NEW) -->
     <div id="view-reveal" class="container hidden">
         <h2>正解は...</h2>
-        <div id="reveal-correct-box"
-            style="margin: 30px auto; padding: 30px; border-radius: 12px; color: white; font-size: 2em; font-weight: 900; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-shadow: 2px 2px 5px rgba(0,0,0,0.5);">
+        <div id="reveal-correct-box">
             <!-- 正解の選択肢がここに入る -->
         </div>
         <button class="btn-main btn-next" onclick="showInterimRanking()" style="margin-top:20px;">ランキングを表示 ＞</button>
@@ -1679,10 +1678,16 @@
 
             const bgColors = ['#e21b3c', '#1368ce', '#d89e00', '#26890c'];
             const revealBox = document.getElementById('reveal-correct-box');
-            revealBox.className = colors[correctIndex];
-            revealBox.style.backgroundColor = bgColors[correctIndex];
-            revealBox.style.color = 'white';
-            revealBox.innerHTML = `<span style="font-size:1.5em; margin-right:15px;">${shapes[correctIndex]}</span> ${q.options[correctIndex] || '(なし)'}`;
+            // 背景色・文字色・影を直接 setAttribute で一括設定（キャッシュ・CSS競合を回避）
+            revealBox.setAttribute('style',
+                `margin: 30px auto; padding: 30px; border-radius: 12px;` +
+                `background-color: ${bgColors[correctIndex] || '#888'};` +
+                `color: white;` +
+                `font-size: 2em; font-weight: 900; max-width: 600px;` +
+                `box-shadow: 0 5px 15px rgba(0,0,0,0.3);` +
+                `text-shadow: 2px 2px 6px rgba(0,0,0,0.6);`
+            );
+            revealBox.innerHTML = `<span style="font-size:1.5em; margin-right:15px; color:white;">${shapes[correctIndex]}</span><span style="color:white;">${q.options[correctIndex] || '(なし)'}</span>`;
 
             // Publish results to Firebase
             const resultsData = {};
