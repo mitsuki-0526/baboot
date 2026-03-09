@@ -465,6 +465,11 @@
             text-align: left;
         }
 
+        .bg-red    { background-color: var(--k-red);    box-shadow: 0 8px 0 #990f26; }
+        .bg-blue   { background-color: var(--k-blue);   box-shadow: 0 8px 0 #0c4285; }
+        .bg-yellow { background-color: var(--k-yellow); box-shadow: 0 8px 0 #916a00; }
+        .bg-green  { background-color: var(--k-green);  box-shadow: 0 8px 0 #154d06; }
+
         .shape-icon {
             font-size: 1.5em;
             margin-right: 20px;
@@ -806,7 +811,7 @@
     <div id="view-reveal" class="container hidden">
         <h2>正解は...</h2>
         <div id="reveal-correct-box"
-            style="margin: 30px auto; padding: 30px; border-radius: 12px; color: white; font-size: 2em; font-weight: 900; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);">
+            style="margin: 30px auto; padding: 30px; border-radius: 12px; color: #333; font-size: 2em; font-weight: 900; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
             <!-- 正解の選択肢がここに入る -->
         </div>
         <button class="btn-main btn-next" onclick="showInterimRanking()" style="margin-top:20px;">ランキングを表示 ＞</button>
@@ -1400,10 +1405,12 @@
         function forceResetAllConnections() {
             if (confirm("【警告】現在接続中の全ての端末を強制的に切断し、全データを初期化しますか？\n(他クラスで使用中の場合、そのゲームも中断されます)")) {
                 db.goOnline(); // 通信を一時的に再開
-                db.ref('system/force_reset').set(Date.now()).then(() => {
-                    db.ref('rooms').remove();
-                    alert("リセット信号を送信しました。全ての端末が数秒以内に切断されます。");
-                });
+                db.ref('system/force_reset').set(Date.now())
+                    .then(() => db.ref('rooms').remove())
+                    .then(() => {
+                        alert("リセット信号を送信しました。全ての端末が数秒以内に切断されます。");
+                        db.goOffline(); // 教師の接続も閉じる
+                    });
             }
         }
 
@@ -1670,8 +1677,11 @@
             const colors = ['bg-red', 'bg-blue', 'bg-yellow', 'bg-green'];
             const shapes = ['▲', '◆', '●', '■'];
 
+            const bgColors = ['#e21b3c', '#1368ce', '#d89e00', '#26890c'];
             const revealBox = document.getElementById('reveal-correct-box');
             revealBox.className = colors[correctIndex];
+            revealBox.style.backgroundColor = bgColors[correctIndex];
+            revealBox.style.color = '#333';
             revealBox.innerHTML = `<span style="font-size:1.5em; margin-right:15px;">${shapes[correctIndex]}</span> ${q.options[correctIndex] || '(なし)'}`;
 
             // Publish results to Firebase

@@ -439,7 +439,7 @@
                 const resetTime = snap.val();
                 if (resetTime > pageLoadTime) {
                     firebase.database().goOffline();
-                    location.reload();
+                    setTimeout(() => location.reload(), 300); // WebSocketが閉じるのを待ってからリロード
                 }
             }
         });
@@ -500,7 +500,7 @@
                     if (snap.exists()) {
                         alert("先生によって接続が切断されました。");
                         firebase.database().goOffline();
-                        location.reload(); // ページをリロードして初期状態に戻し、通信を切る
+                        setTimeout(() => location.reload(), 300); // WebSocketが閉じるのを待ってからリロード
                     }
                 });
 
