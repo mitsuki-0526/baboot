@@ -465,10 +465,25 @@
             text-align: left;
         }
 
-        .bg-red    { background-color: var(--k-red);    box-shadow: 0 8px 0 #990f26; }
-        .bg-blue   { background-color: var(--k-blue);   box-shadow: 0 8px 0 #0c4285; }
-        .bg-yellow { background-color: var(--k-yellow); box-shadow: 0 8px 0 #916a00; }
-        .bg-green  { background-color: var(--k-green);  box-shadow: 0 8px 0 #154d06; }
+        .bg-red {
+            background-color: var(--k-red);
+            box-shadow: 0 8px 0 #990f26;
+        }
+
+        .bg-blue {
+            background-color: var(--k-blue);
+            box-shadow: 0 8px 0 #0c4285;
+        }
+
+        .bg-yellow {
+            background-color: var(--k-yellow);
+            box-shadow: 0 8px 0 #916a00;
+        }
+
+        .bg-green {
+            background-color: var(--k-green);
+            box-shadow: 0 8px 0 #154d06;
+        }
 
         .shape-icon {
             font-size: 1.5em;
@@ -582,6 +597,39 @@
 
 <body>
 
+    <!-- パスワードロック画面 -->
+    <div id="password-overlay"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:#46178f; z-index:99999; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;">
+        <h2 style="margin-bottom:20px;">先生専用ページ</h2>
+        <input type="password" id="teacher-password" placeholder="パスワードを入力"
+            style="padding:10px; font-size:1.2em; border-radius:5px; border:none; margin-bottom:15px; text-align:center;">
+        <button class="btn-main btn-success" onclick="checkPassword()"
+            style="font-size:1.2em; cursor:pointer;">ログイン</button>
+        <p id="password-error" style="color:#ff4d4d; margin-top:10px; font-weight:bold; display:none;">パスワードが違います</p>
+    </div>
+
+    <script>
+        function checkPassword() {
+            const input = document.getElementById('teacher-password').value;
+            // 💡 ここの「chikko」をお好きなパスワードに変更してください
+            const correctPassword = "chikko";
+
+            if (input === correctPassword) {
+                document.getElementById('password-overlay').style.display = 'none';
+            } else {
+                document.getElementById('password-error').style.display = 'block';
+            }
+        }
+
+        // Enterキーでもログインできるようにする
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('teacher-password').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    checkPassword();
+                }
+            });
+        });
+    </script>
     <div id="loading" class="loading-overlay hidden">
         <div>🚀 通信中...</div>
     </div>
@@ -1400,6 +1448,32 @@
         let remainingTime = 0;
         let currentRoomId = null;
         let roomRef = null;
+        let isQuestionActive = false;
+        let finishQuestionPhaseCalled = false;
+
+        function handleAnswerSnap(snap) {
+            const studentId = snap.key;
+            const data = snap.val();
+            const p = players[studentId];
+            if (!p || p.hasAnsweredThisRound) return;
+            p.hasAnsweredThisRound = true;
+
+            const currentQ = activeQuiz.questions[currentQIndex];
+            if (!currentQ) return;
+
+            const isCorrect = (data.choice === currentQ.correctIndex);
+            let points = 0; let bonus = 0;
+
+            if (isCorrect) {
+                points = Math.max(500, Math.round(1000 - (data.timeTaken * 30)));
+                p.streak++;
+                if (p.streak >= 2) bonus = Math.min(500, (p.streak - 1) * 100);
+                p.score += (points + bonus);
+            } else { p.streak = 0; }
+
+            p.lastResult = { isCorrect: isCorrect, points: points, bonus: bonus };
+            checkAllAnswered();
+        }
 
         function forceResetAllConnections() {
             if (confirm("【警告】現在接続中の全ての端末を強制的に切断し、全データを初期化しますか？\n(他クラスで使用中の場合、そのゲームも中断されます)")) {
@@ -1510,30 +1584,8 @@
                     }
                 });
 
-                // Listen for answers
-                roomRef.child('answers').on('child_added', (snap) => {
-                    const studentId = snap.key;
-                    const data = snap.val();
-                    const p = players[studentId];
-                    if (!p || p.hasAnsweredThisRound) return;
-                    p.hasAnsweredThisRound = true;
-
-                    const currentQ = activeQuiz.questions[currentQIndex];
-                    if (!currentQ) return;
-
-                    const isCorrect = (data.choice === currentQ.correctIndex);
-                    let points = 0; let bonus = 0;
-
-                    if (isCorrect) {
-                        points = Math.max(500, Math.round(1000 - (data.timeTaken * 30)));
-                        p.streak++;
-                        if (p.streak >= 2) bonus = Math.min(500, (p.streak - 1) * 100);
-                        p.score += (points + bonus);
-                    } else { p.streak = 0; }
-
-                    p.lastResult = { isCorrect: isCorrect, points: points, bonus: bonus };
-                    checkAllAnswered();
-                });
+                // Listen for answers (initial attach; re-attached each question in nextQuestion)
+                roomRef.child('answers').on('child_added', handleAnswerSnap);
 
             }).catch(e => {
                 document.getElementById('display-pin').innerText = "エラー発生";
@@ -1558,9 +1610,11 @@
 
         function broadcast(dataObj) {
             if (!roomRef) return;
+            // Remove undefined properties to prevent Firebase crashes on undefined fields (like qText_en)
+            const cleanData = JSON.parse(JSON.stringify(dataObj));
             // Write to the broadcast node to update all clients
             roomRef.child('broadcast').set({
-                ...dataObj,
+                ...cleanData,
                 _timestamp: firebase.database.ServerValue.TIMESTAMP // ensure it refreshes on client
             });
         }
@@ -1618,6 +1672,9 @@
 
             let preTime = 7;
             document.getElementById('pre-timer').innerText = preTime;
+            
+            isQuestionActive = false;
+            finishQuestionPhaseCalled = false;
 
             Object.values(players).forEach(p => p.hasAnsweredThisRound = false);
 
@@ -1650,6 +1707,15 @@
 
                     broadcast({ type: "QUESTION_START" });
 
+                    // Re-attach answers listener fresh each question to prevent
+                    // Firebase from replaying cached events from previous rounds
+                    if (roomRef) {
+                        roomRef.child('answers').off('child_added');
+                        roomRef.child('answers').on('child_added', handleAnswerSnap);
+                    }
+
+                    isQuestionActive = true;
+
                     remainingTime = q.time;
                     document.getElementById('q-timer').innerText = remainingTime;
                     timerInterval = setInterval(() => {
@@ -1662,12 +1728,17 @@
         }
 
         function checkAllAnswered() {
-            if (Object.values(players).every(p => p.hasAnsweredThisRound)) {
+            if (!isQuestionActive) return;
+            const playerList = Object.values(players);
+            if (playerList.length > 0 && playerList.every(p => p.hasAnsweredThisRound)) {
                 clearInterval(timerInterval); setTimeout(finishQuestionPhase, 1000);
             }
         }
 
         function finishQuestionPhase() {
+            if (finishQuestionPhaseCalled) return;
+            finishQuestionPhaseCalled = true;
+            isQuestionActive = false;
             document.getElementById('view-question').classList.add('hidden');
             document.getElementById('view-reveal').classList.remove('hidden');
 
