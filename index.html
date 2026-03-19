@@ -674,17 +674,21 @@
             }, 50);
 
             clearTimeout(timerTimeout);
-            timerTimeout = setTimeout(() => {
-                document.getElementById('options-area').classList.add('locked');
-                showOverlay("fb-wait", "⏰", "Time's Up!", "他の人を待っています...");
-                currentStreak = 0;
-                sendAnswerData(-1, timeSec);
-            }, timeSec * 1000);
+            const timeUpAt = Date.now() + timeSec * 1000;
+            timerTimeout = setInterval(() => {
+                if (Date.now() >= timeUpAt) {
+                    clearInterval(timerTimeout);
+                    document.getElementById('options-area').classList.add('locked');
+                    showOverlay("fb-wait", "⏰", "Time's Up!", "他の人を待っています...");
+                    currentStreak = 0;
+                    sendAnswerData(-1, timeSec);
+                }
+            }, 200);
         }
 
         function sendAnswer(choiceIndex) {
             document.getElementById('options-area').classList.add('locked');
-            clearTimeout(timerTimeout);
+            clearInterval(timerTimeout);
             const timeTaken = (Date.now() - questionStartTime) / 1000;
             sendAnswerData(choiceIndex, timeTaken);
             showOverlay("fb-wait", "⏳", "Waiting...", "他の人を待っています");

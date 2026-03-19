@@ -1700,11 +1700,12 @@
             });
 
             clearInterval(timerInterval);
+            const preEndTime = Date.now() + preTime * 1000;
             timerInterval = setInterval(() => {
-                preTime--;
-                document.getElementById('pre-timer').innerText = preTime;
+                const preRemaining = Math.ceil((preEndTime - Date.now()) / 1000);
+                document.getElementById('pre-timer').innerText = Math.max(0, preRemaining);
 
-                if (preTime <= 0) {
+                if (Date.now() >= preEndTime) {
                     clearInterval(timerInterval);
                     document.getElementById('pre-read-overlay').classList.add('hidden');
                     document.getElementById('options-area').classList.remove('hidden');
@@ -1713,15 +1714,17 @@
 
                     isQuestionActive = true;
 
+                    const qEndTime = Date.now() + q.time * 1000;
                     remainingTime = q.time;
                     document.getElementById('q-timer').innerText = remainingTime;
                     timerInterval = setInterval(() => {
-                        remainingTime--;
+                        const qRemaining = Math.ceil((qEndTime - Date.now()) / 1000);
+                        remainingTime = Math.max(0, qRemaining);
                         document.getElementById('q-timer').innerText = remainingTime;
-                        if (remainingTime <= 0) { clearInterval(timerInterval); finishQuestionPhase(); }
-                    }, 1000);
+                        if (Date.now() >= qEndTime) { clearInterval(timerInterval); finishQuestionPhase(); }
+                    }, 200);
                 }
-            }, 1000);
+            }, 200);
         }
 
         function checkAllAnswered() {
