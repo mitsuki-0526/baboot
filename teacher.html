@@ -1452,6 +1452,7 @@
         let finishQuestionPhaseCalled = false;
 
         function handleAnswerSnap(snap) {
+            if (!isQuestionActive) return;
             const studentId = snap.key;
             const data = snap.val();
             const p = players[studentId];
