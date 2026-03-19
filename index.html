@@ -463,6 +463,9 @@
         let questionStartTime = 0;
         let currentStreak = 0;
         let timerTimeout;
+        let timerPhase = null;          // 'pre' | 'active' | null
+        let preQuestionStartTime = 0;
+        let preQuestionDuration = 0;
 
         function joinRoom() {
             db.goOnline(); // 通信開始
@@ -627,6 +630,10 @@
             document.getElementById('options-area').classList.add('locked');
             document.getElementById('options-area').classList.add('hidden');
 
+            preQuestionDuration = data.preTime || 7;
+            preQuestionStartTime = Date.now();
+            timerPhase = 'pre';
+
             const bar = document.getElementById('timer-bar');
             bar.style.transition = "none";
             bar.style.width = '100%';
@@ -634,7 +641,7 @@
             void bar.offsetWidth;
 
             setTimeout(() => {
-                bar.style.transition = `width ${data.preTime || 7}s linear`;
+                bar.style.transition = `width ${preQuestionDuration}s linear`;
                 bar.style.width = '0%';
             }, 50);
 
@@ -662,6 +669,8 @@
             document.getElementById('options-area').classList.remove('locked');
 
             questionStartTime = Date.now();
+            timerPhase = 'active';
+
             const bar = document.getElementById('timer-bar');
             bar.style.transition = "none";
             bar.style.width = '100%';
@@ -675,6 +684,7 @@
 
             clearTimeout(timerTimeout);
             timerTimeout = setTimeout(() => {
+                timerPhase = null;
                 document.getElementById('options-area').classList.add('locked');
                 showOverlay("fb-wait", "⏰", "Time's Up!", "他の人を待っています...");
                 currentStreak = 0;
@@ -683,6 +693,7 @@
         }
 
         function sendAnswer(choiceIndex) {
+            timerPhase = null;
             document.getElementById('options-area').classList.add('locked');
             clearTimeout(timerTimeout);
             const timeTaken = (Date.now() - questionStartTime) / 1000;
@@ -715,6 +726,36 @@
                 showOverlay("fb-wrong", "×", "Wrong...", "");
             }
         }
+
+        // タブ復帰時にタイマーバーを正しい位置に補正する
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible' || !timerPhase) return;
+
+            const bar = document.getElementById('timer-bar');
+            let elapsed, remaining, totalDuration;
+
+            if (timerPhase === 'pre') {
+                elapsed = (Date.now() - preQuestionStartTime) / 1000;
+                totalDuration = preQuestionDuration;
+            } else { // 'active'
+                elapsed = (Date.now() - questionStartTime) / 1000;
+                totalDuration = currentQTime;
+            }
+
+            remaining = Math.max(0, totalDuration - elapsed);
+            const pct = (remaining / totalDuration) * 100;
+
+            bar.style.transition = 'none';
+            bar.style.width = pct + '%';
+            void bar.offsetWidth;
+
+            if (remaining > 0) {
+                setTimeout(() => {
+                    bar.style.transition = `width ${remaining}s linear`;
+                    bar.style.width = '0%';
+                }, 20);
+            }
+        });
 
         function showOverlay(colorClass, icon, text, scoreHtml) {
             const overlay = document.getElementById('feedback-overlay');
