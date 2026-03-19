@@ -1455,6 +1455,8 @@
             if (!isQuestionActive) return;
             const studentId = snap.key;
             const data = snap.val();
+            // 古い問題の回答が混入しないよう qNum を検証（生徒側が qNum を含む場合のみ）
+            if (data.qNum !== undefined && data.qNum !== currentQIndex + 1) return;
             const p = players[studentId];
             if (!p || p.hasAnsweredThisRound) return;
             p.hasAnsweredThisRound = true;
@@ -1677,7 +1679,7 @@
             isQuestionActive = false;
             finishQuestionPhaseCalled = false;
 
-            Object.values(players).forEach(p => p.hasAnsweredThisRound = false);
+            Object.values(players).forEach(p => { p.hasAnsweredThisRound = false; p.lastResult = null; });
 
             // Clear previous answers
             if (roomRef) roomRef.child('answers').remove();
@@ -1767,8 +1769,9 @@
                 if (!p.hasAnsweredThisRound) {
                     p.streak = 0;
                     resultsData[p.studentId] = { type: "RESULT", isCorrect: false, points: 0, bonus: 0 };
-                } else if (p.lastResult) {
-                    resultsData[p.studentId] = { type: "RESULT", isCorrect: p.lastResult.isCorrect, points: p.lastResult.points, bonus: p.lastResult.bonus };
+                } else {
+                    const r = p.lastResult || { isCorrect: false, points: 0, bonus: 0 };
+                    resultsData[p.studentId] = { type: "RESULT", isCorrect: r.isCorrect, points: r.points, bonus: r.bonus };
                 }
             });
             if (roomRef) roomRef.child('results').set(resultsData);

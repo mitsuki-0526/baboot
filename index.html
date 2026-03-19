@@ -431,6 +431,7 @@
         let studentId = "student-" + Math.floor(Math.random() * 10000000);
         let currentLang = "ja";
         let roomRef = null;
+        let currentQNum = 0; // 現在の問題番号（古い回答の混入防止用）
 
         const pageLoadTime = Date.now();
         // 【修正】管理者による全端末強制切断の監視（過去の信号で誤発火しないようにする）
@@ -595,6 +596,7 @@
         let currentQTime = 0;
 
         function prepareQuestion(data) {
+            currentQNum = data.qNum || 0;
             currentQTime = data.time;
             document.getElementById('view-waiting').classList.add('hidden');
             document.getElementById('view-ranking').classList.add('hidden');
@@ -694,6 +696,7 @@
                     choice: choiceIndex,
                     timeTaken: timeTaken,
                     myName: myName,
+                    qNum: currentQNum,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
             }
