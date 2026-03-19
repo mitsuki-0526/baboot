@@ -1455,6 +1455,8 @@
             if (!isQuestionActive) return;
             const studentId = snap.key;
             const data = snap.val();
+            // 古いラウンドの回答キャッシュが再生されても無視する
+            if (data.roundNum !== undefined && data.roundNum !== currentQIndex) return;
             const p = players[studentId];
             if (!p || p.hasAnsweredThisRound) return;
             p.hasAnsweredThisRound = true;
@@ -1686,6 +1688,7 @@
             broadcast({
                 type: "PRE_QUESTION",
                 qNum: currentQIndex + 1,
+                roundNum: currentQIndex,
                 time: q.time,
                 qText: q.text,
                 qText_en: q.text_en,
@@ -1707,13 +1710,6 @@
                     document.getElementById('options-area').classList.remove('hidden');
 
                     broadcast({ type: "QUESTION_START" });
-
-                    // Re-attach answers listener fresh each question to prevent
-                    // Firebase from replaying cached events from previous rounds
-                    if (roomRef) {
-                        roomRef.child('answers').off('child_added');
-                        roomRef.child('answers').on('child_added', handleAnswerSnap);
-                    }
 
                     isQuestionActive = true;
 

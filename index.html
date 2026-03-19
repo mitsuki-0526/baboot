@@ -462,6 +462,7 @@
         let questionStartTime = 0;
         let currentStreak = 0;
         let timerTimeout;
+        let currentRoundNum = -1;
 
         function joinRoom() {
             db.goOnline(); // 通信開始
@@ -596,6 +597,7 @@
 
         function prepareQuestion(data) {
             currentQTime = data.time;
+            if (data.roundNum !== undefined) currentRoundNum = data.roundNum;
             document.getElementById('view-waiting').classList.add('hidden');
             document.getElementById('view-ranking').classList.add('hidden');
             document.getElementById('view-game').classList.remove('hidden');
@@ -694,6 +696,7 @@
                     choice: choiceIndex,
                     timeTaken: timeTaken,
                     myName: myName,
+                    roundNum: currentRoundNum,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
             }
