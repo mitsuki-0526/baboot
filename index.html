@@ -584,6 +584,7 @@
                 } else if (data.type === "END" || data.type === "NEXT") {
                     if (data.type === "END") {
                         showOverlay("fb-wait", "🏆", "ゲーム終了！\n画面を見てね", "");
+                        setTimeout(() => db.goOffline(), 500); // 接続解放
                     } else {
                         document.getElementById('feedback-overlay').classList.add('hidden');
                         document.getElementById('view-game').classList.add('hidden');

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git add index.html teacher.html)",
+      "Bash(git commit:*)",
+      "Bash(git push origin main)",
+      "Bash(git remote set-url origin https://github.com/mitsuki-0526/baboot.git)",
+      "Bash(git add teacher.html)"
+    ]
+  }
+}

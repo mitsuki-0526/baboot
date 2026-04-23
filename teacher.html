@@ -654,6 +654,15 @@
     <div id="view-editor" class="container" style="padding: 10px;">
         <div class="header">
             <div class="config-row">
+                <select id="target-year" style="font-weight:bold; color:#46178f; border:2px solid #46178f;">
+                    <option value="R5">R5</option>
+                    <option value="R6">R6</option>
+                    <option value="R7">R7</option>
+                    <option value="R8" selected>R8</option>
+                    <option value="R9">R9</option>
+                    <option value="R10">R10</option>
+                    <option value="">── 旧データ(年度なし) ──</option>
+                </select>
                 <select id="target-subject">
                     <option value="国語">国語</option>
                     <option value="数学">数学</option>
@@ -693,6 +702,9 @@
                 <button class="btn-main"
                     style="background:#52c41a; padding: 5px 15px; font-size: 0.9em; box-shadow: 0 4px 0 #237804;"
                     onclick="openAiImportModal()">🤖 AI一括読込 (TSV形式)</button>
+                <button class="btn-main"
+                    style="background:#fa8c16; padding: 5px 15px; font-size: 0.9em; box-shadow: 0 4px 0 #ad4e00;"
+                    onclick="openMigrateModal()">📦 旧データを年度へ移行</button>
             </div>
         </div>
 
@@ -817,6 +829,41 @@
                     onclick="closeAiImportModal()">キャンセル</button>
                 <button class="btn-main" style="margin-top: 0; background: #52c41a; box-shadow: 0 4px 0 #237804;"
                     onclick="processAiImportData()">一括インポートを実行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 年度移行モーダル -->
+    <div id="migrate-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2 style="color: #fa8c16; margin-top: 0;">📦 旧データを年度へ一括移行</h2>
+            <p style="color: #666; font-size: 0.95em;">
+                年度なし（旧形式）のクイズデータを、指定した年度に一括でコピーします。<br>
+                移行後、旧データを削除するか選択できます。
+            </p>
+            <div style="background:#fff7e6; border:1px solid #ffd591; border-radius:6px; padding:15px; margin-bottom:20px;">
+                <div id="migrate-list" style="font-size:0.9em; color:#333; max-height:200px; overflow-y:auto; text-align:left;"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
+                <label style="font-weight:bold; color:#fa8c16;">移行先の年度：</label>
+                <select id="migrate-target-year" style="font-weight:bold; color:#46178f; border:2px solid #46178f; padding:6px 10px; border-radius:4px;">
+                    <option value="R5">R5</option>
+                    <option value="R6">R6</option>
+                    <option value="R7" selected>R7</option>
+                    <option value="R8">R8</option>
+                    <option value="R9">R9</option>
+                    <option value="R10">R10</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px;">
+                <input type="checkbox" id="migrate-delete-old" style="width:18px; height:18px; cursor:pointer;">
+                <label for="migrate-delete-old" style="cursor:pointer; color:#e21b3c; font-weight:bold;">移行後に旧データ（年度なし）を削除する</label>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn-main" style="background: #ccc; box-shadow: 0 4px 0 #999; color: #333;"
+                    onclick="closeMigrateModal()">キャンセル</button>
+                <button class="btn-main" style="background: #fa8c16; box-shadow: 0 4px 0 #ad4e00;"
+                    onclick="executeMigration()">移行を実行</button>
             </div>
         </div>
     </div>
@@ -1009,10 +1056,11 @@
         // 2. 教科/学年/回 で読み込み・管理
         // ==========================================
         function getCombinedId() {
+            const y = document.getElementById('target-year').value;
             const s = document.getElementById('target-subject').value;
             const g = document.getElementById('target-grade').value;
             const r = document.getElementById('target-round').value;
-            return `${s}_${g}_${r}`;
+            return y ? `${y}_${s}_${g}_${r}` : `${s}_${g}_${r}`;
         }
 
         function loadData() {
@@ -1141,6 +1189,56 @@
                 document.getElementById('editor-sidebar').style.display = 'none';
                 renderSidebarList();
             }
+        }
+
+        function openMigrateModal() {
+            const legacy = savedQuizzes.filter(q => !/^R\d+_/.test(q.id));
+            if (legacy.length === 0) {
+                return alert("年度なしの旧データは見つかりませんでした。");
+            }
+            const listEl = document.getElementById('migrate-list');
+            listEl.innerHTML = legacy.map(q => `<div style="padding:4px 0; border-bottom:1px solid #ffe7ba;">📄 ${q.id}　<span style="color:#888;">${q.title || '無題'}</span></div>`).join('');
+            document.getElementById('migrate-modal').classList.remove('hidden');
+        }
+
+        function closeMigrateModal() {
+            document.getElementById('migrate-modal').classList.add('hidden');
+        }
+
+        async function executeMigration() {
+            const targetYear = document.getElementById('migrate-target-year').value;
+            const deleteOld = document.getElementById('migrate-delete-old').checked;
+            const legacy = savedQuizzes.filter(q => !/^R\d+_/.test(q.id));
+
+            if (legacy.length === 0) return closeMigrateModal();
+
+            const confirmMsg = `${legacy.length}件のデータを「${targetYear}」へ移行します。\n` +
+                (deleteOld ? '移行後、旧データ（年度なし）は削除されます。\n' : '') +
+                '\nよろしいですか？';
+            if (!confirm(confirmMsg)) return;
+
+            closeMigrateModal();
+            showLoading(true);
+
+            for (const q of legacy) {
+                const newId = `${targetYear}_${q.id}`;
+                const already = savedQuizzes.find(x => x.id === newId);
+                if (already) continue;
+
+                const newQuiz = { ...q, id: newId };
+                savedQuizzes.push(newQuiz);
+                await syncToGAS('save', newId, newQuiz.subject, newQuiz);
+            }
+
+            if (deleteOld) {
+                for (const q of legacy) {
+                    savedQuizzes = savedQuizzes.filter(x => x.id !== q.id);
+                    await syncToGAS('delete', q.id, q.subject);
+                }
+            }
+
+            showLoading(false);
+            alert(`移行完了！${legacy.length}件を「${targetYear}」へ移行しました。\n年度セレクタで「${targetYear}」を選んで読込してください。`);
         }
 
         function exportLocalQuiz() {
@@ -1525,10 +1623,12 @@
 
             document.getElementById('view-editor').classList.add('hidden');
             document.getElementById('view-lobby').classList.remove('hidden');
+            const y = document.getElementById('target-year').value;
             const s = document.getElementById('target-subject').value;
             const g = document.getElementById('target-grade').value;
             const r = document.getElementById('target-round').value;
-            document.getElementById('current-quiz-title').innerText = `プレイ中: ${s} ${g}年 第${r}回 - ${activeQuiz.title}`;
+            const yLabel = y ? `${y} ` : '';
+            document.getElementById('current-quiz-title').innerText = `プレイ中: ${yLabel}${s} ${g}年 第${r}回 - ${activeQuiz.title}`;
 
             Object.keys(players).forEach(k => delete players[k]);
             document.getElementById('player-grid').innerHTML = '';
@@ -1607,6 +1707,7 @@
                 // Room cleanup
                 roomRef.remove().then(() => {
                     roomRef = null;
+                    db.goOffline(); // 接続解放
                 });
             }
         }
