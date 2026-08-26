@@ -592,6 +592,18 @@
             animation-delay: calc(var(--i) * 0.2s);
             /* 順番に表示 */
         }
+
+        /* 生徒別詳細モーダル */
+        #detail-answers-table th,
+        #detail-answers-table td {
+            font-size: 0.85em;
+            padding: 8px;
+            word-break: break-word;
+        }
+
+        #detail-answers-table {
+            table-layout: fixed;
+        }
     </style>
 </head>
 
@@ -864,6 +876,19 @@
                     onclick="closeMigrateModal()">キャンセル</button>
                 <button class="btn-main" style="background: #fa8c16; box-shadow: 0 4px 0 #ad4e00;"
                     onclick="executeMigration()">移行を実行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 生徒別詳細モーダル -->
+    <div id="student-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:700px; max-height:80vh; overflow-y:auto;">
+            <h2 id="detail-student-name" style="color:var(--k-purple); margin-top:0;"></h2>
+            <p id="detail-student-summary" style="font-weight:bold; color:#666;"></p>
+            <table class="ranking-table" id="detail-answers-table" style="width:100%;"></table>
+            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                <button class="btn-main" style="background:#ccc; box-shadow:0 4px 0 #999; color:#333;"
+                    onclick="closeStudentDetailModal()">閉じる</button>
             </div>
         </div>
     </div>
@@ -1573,6 +1598,15 @@
             } else { p.streak = 0; }
 
             p.lastResult = { isCorrect: isCorrect, points: points, bonus: bonus };
+            p.answerHistory.push({
+                qNum: currentQIndex + 1,
+                qText: currentQ.text,
+                choice: data.choice,
+                correctIndex: currentQ.correctIndex,
+                chosenText: currentQ.options[data.choice] ?? '(不明)',
+                correctText: currentQ.options[currentQ.correctIndex] ?? '(不明)',
+                isCorrect: isCorrect
+            });
             checkAllAnswered();
         }
 
@@ -1665,7 +1699,7 @@
                     const studentId = snap.key;
                     const data = snap.val();
                     if (!players[studentId]) {
-                        players[studentId] = { studentId: studentId, name: data.name, score: 0, streak: 0, hasAnsweredThisRound: false };
+                        players[studentId] = { studentId: studentId, name: data.name, score: 0, streak: 0, hasAnsweredThisRound: false, answerHistory: [] };
                         const tag = document.createElement('div');
                         tag.className = 'player-tag';
                         tag.innerHTML = `<span>${data.name}</span><button class="kick-btn" onclick="kickPlayer('${studentId}')" title="接続を切る">×</button>`;
@@ -1869,6 +1903,15 @@
             Object.values(players).forEach(p => {
                 if (!p.hasAnsweredThisRound) {
                     p.streak = 0;
+                    p.answerHistory.push({
+                        qNum: currentQIndex + 1,
+                        qText: q.text,
+                        choice: null,
+                        correctIndex: correctIndex,
+                        chosenText: '(未回答)',
+                        correctText: q.options[correctIndex] ?? '(不明)',
+                        isCorrect: false
+                    });
                     resultsData[p.studentId] = { type: "RESULT", isCorrect: false, points: 0, bonus: 0 };
                 } else {
                     const r = p.lastResult || { isCorrect: false, points: 0, bonus: 0 };
@@ -1899,7 +1942,11 @@
 
             const sorted = Object.values(players).sort((a, b) => b.score - a.score);
 
-            const finalData = sorted.map((p, idx) => ({ rank: idx + 1, name: p.name, score: p.score }));
+            const finalData = sorted.map((p, idx) => {
+                const total = p.answerHistory.length;
+                const correctCount = p.answerHistory.filter(a => a.isCorrect).length;
+                return { rank: idx + 1, name: p.name, score: p.score, correctCount, total };
+            });
             broadcast({ type: "FINAL_RANKING", results: finalData });
 
             [1, 2, 3].forEach(i => {
@@ -1912,10 +1959,62 @@
             if (sorted[1]) { document.getElementById('name-2').innerText = sorted[1].name; document.getElementById('score-2').innerText = sorted[1].score; setTimeout(() => document.getElementById('bar-2').style.height = "180px", 800); }
             if (sorted[2]) { document.getElementById('name-3').innerText = sorted[2].name; document.getElementById('score-3').innerText = sorted[2].score; setTimeout(() => document.getElementById('bar-3').style.height = "120px", 1100); }
 
-            if (sorted.length > 3) {
-                let tableHtml = ''; for (let i = 3; i < sorted.length; i++) tableHtml += `<tr><td>${i + 1}位</td><td>${sorted[i].name}</td><td>${sorted[i].score}</td></tr>`;
-                document.getElementById('final-table').innerHTML = tableHtml;
+            let tableHtml = '<tr><th>順位</th><th>名前</th><th>スコア</th><th>正答率</th><th>詳細</th></tr>';
+            sorted.forEach((p, i) => {
+                const total = p.answerHistory.length;
+                const correctCount = p.answerHistory.filter(a => a.isCorrect).length;
+                const rate = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+                tableHtml += `<tr>
+                    <td>${i + 1}位</td>
+                    <td>${p.name}</td>
+                    <td>${p.score}</td>
+                    <td>${rate}% (${correctCount}/${total})</td>
+                    <td><button class="btn-main btn-small" style="margin:0;" onclick="openStudentDetailModal('${p.studentId}')">見る</button></td>
+                </tr>`;
+            });
+            document.getElementById('final-table').innerHTML = tableHtml;
+
+            if (sorted.length > 0) {
+                setTimeout(() => {
+                    if (confirm('この回の成績（生徒ごとの正答率・間違えた問題を含む）をCSVでダウンロードしますか？')) {
+                        downloadCSV();
+                    }
+                }, 1500);
             }
+        }
+
+        function openStudentDetailModal(studentId) {
+            const p = players[studentId];
+            if (!p) return;
+            const total = p.answerHistory.length;
+            const correctCount = p.answerHistory.filter(a => a.isCorrect).length;
+            const rate = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+            document.getElementById('detail-student-name').innerText = `📋 ${p.name} さんの回答詳細`;
+            document.getElementById('detail-student-summary').innerText =
+                `正答率: ${rate}% (${correctCount}/${total}問正解) / スコア: ${p.score}`;
+
+            const rows = p.answerHistory.map(a => {
+                const color = a.isCorrect ? '#26890c' : '#e21b3c';
+                const mark = a.isCorrect ? '⭕ 正解' : '❌ 不正解';
+                return `<tr>
+                    <td>Q${a.qNum}</td>
+                    <td>${a.qText}</td>
+                    <td>${a.chosenText}</td>
+                    <td>${a.correctText}</td>
+                    <td style="color:${color}; font-weight:bold;">${mark}</td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('detail-answers-table').innerHTML =
+                '<tr><th>問題</th><th>問題文</th><th>回答</th><th>正解</th><th>結果</th></tr>' +
+                (rows || '<tr><td colspan="5">回答データがありません</td></tr>');
+
+            document.getElementById('student-detail-modal').classList.remove('hidden');
+        }
+
+        function closeStudentDetailModal() {
+            document.getElementById('student-detail-modal').classList.add('hidden');
         }
 
         function downloadCSV() {
@@ -1927,14 +2026,21 @@
 
             // Excelで文字化けしないようにBOM (Byte Order Mark) を先頭に追加
             let csvContent = "\uFEFF";
-            csvContent += "順位,名前,スコア\n";
+            csvContent += "順位,名前,スコア,正答率,正解数,回答数,間違えた問題(選んだ回答)\n";
 
             sorted.forEach((p, index) => {
                 let name = p.name ? p.name.replace(/"/g, '""') : '不明';
                 if (name.includes(',') || name.includes('\\n') || name.includes('"')) {
                     name = `"${name}"`;
                 }
-                csvContent += `${index + 1},${name},${p.score}\n`;
+                const total = p.answerHistory.length;
+                const correctCount = p.answerHistory.filter(a => a.isCorrect).length;
+                const rate = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+                let wrongQs = p.answerHistory.filter(a => !a.isCorrect).map(a => `Q${a.qNum}:${a.chosenText}`).join(';');
+                if (wrongQs.includes(',') || wrongQs.includes('"')) {
+                    wrongQs = `"${wrongQs.replace(/"/g, '""')}"`;
+                }
+                csvContent += `${index + 1},${name},${p.score},${rate}%,${correctCount},${total},${wrongQs}\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
